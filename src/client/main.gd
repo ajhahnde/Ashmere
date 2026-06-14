@@ -19,6 +19,11 @@ const HERO_COLOR := Color(0.36, 0.66, 1.0)
 const BOT_COLOR := Color(1.0, 0.42, 0.38)
 const ENTITY_RADIUS := 44.0
 
+## Creeps render as small, darkened team-coloured circles so a wave reads as a
+## cluster distinct from the larger heroes.
+const CREEP_RADIUS := 22.0
+const CREEP_DARKEN := 0.3
+
 ## Map debug-draw styling. World-unit sizes, tuned to read at the camera's
 ## zoomed-out framing of the whole arena.
 const FIELD_COLOR := Color(0.114, 0.125, 0.145)
@@ -31,9 +36,12 @@ const CAMP_RADIUS := 60.0
 const TOWER_SIZE := Vector2(110.0, 110.0)
 const NEXUS_SIZE := Vector2(200.0, 200.0)
 
-## HP bar, drawn above any entity that carries health.
+## HP bar, drawn above any entity that carries health. Creeps get a compact bar
+## scaled to their smaller footprint.
 const HP_BAR_SIZE := Vector2(160.0, 26.0)
 const HP_BAR_OFFSET := Vector2(-80.0, -150.0)
+const CREEP_HP_BAR_SIZE := Vector2(70.0, 12.0)
+const CREEP_HP_BAR_OFFSET := Vector2(-35.0, -55.0)
 const HP_BAR_BG := Color(0.0, 0.0, 0.0, 0.6)
 const HP_BAR_FG := Color(0.4, 0.85, 0.4)
 
@@ -82,18 +90,22 @@ func _draw_entities() -> void:
 		if entity.is_structure:
 			var size := NEXUS_SIZE if entity.is_nexus else TOWER_SIZE
 			draw_rect(Rect2(entity.position - size * 0.5, size), _team_color(entity.team), true)
+			_draw_hp_bar(entity, HP_BAR_SIZE, HP_BAR_OFFSET)
+		elif entity.is_creep:
+			draw_circle(entity.position, CREEP_RADIUS, _team_color(entity.team).darkened(CREEP_DARKEN))
+			_draw_hp_bar(entity, CREEP_HP_BAR_SIZE, CREEP_HP_BAR_OFFSET)
 		else:
 			draw_circle(entity.position, ENTITY_RADIUS, _team_color(entity.team))
-		_draw_hp_bar(entity)
+			_draw_hp_bar(entity, HP_BAR_SIZE, HP_BAR_OFFSET)
 
 
-func _draw_hp_bar(entity: SimEntity) -> void:
+func _draw_hp_bar(entity: SimEntity, size: Vector2, offset: Vector2) -> void:
 	if entity.max_hp <= 0:
 		return
 	var frac := clampf(float(entity.hp) / float(entity.max_hp), 0.0, 1.0)
-	var top_left := entity.position + HP_BAR_OFFSET
-	draw_rect(Rect2(top_left, HP_BAR_SIZE), HP_BAR_BG, true)
-	draw_rect(Rect2(top_left, Vector2(HP_BAR_SIZE.x * frac, HP_BAR_SIZE.y)), HP_BAR_FG, true)
+	var top_left := entity.position + offset
+	draw_rect(Rect2(top_left, size), HP_BAR_BG, true)
+	draw_rect(Rect2(top_left, Vector2(size.x * frac, size.y)), HP_BAR_FG, true)
 
 
 func _team_color(team: int) -> Color:

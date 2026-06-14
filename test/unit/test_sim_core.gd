@@ -6,6 +6,7 @@ extends GutTest
 
 func test_constant_input_advances_position_deterministically() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false  # isolate the movement assertion from the wave schedule
 	var id := sim.add_entity(0, Vector2.ZERO, 300.0)
 	var command := InputCommand.new()
 	command.move_dir = Vector2.RIGHT
@@ -27,6 +28,7 @@ func test_identical_input_replays_identically() -> void:
 
 func test_diagonal_input_is_not_faster() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	var speed := 300.0
 	var id := sim.add_entity(0, Vector2.ZERO, speed)
 	var command := InputCommand.new()
@@ -38,6 +40,7 @@ func test_diagonal_input_is_not_faster() -> void:
 
 func test_entity_without_command_holds_still() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	var id := sim.add_entity(0, Vector2(10.0, -5.0), 300.0)
 	sim.step({})
 	assert_eq(sim.state.get_entity(id).position, Vector2(10.0, -5.0))
@@ -45,6 +48,7 @@ func test_entity_without_command_holds_still() -> void:
 
 func _run_scripted(ticks: int) -> Vector2:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	var id := sim.add_entity(0, Vector2.ZERO, 250.0)
 	var command := InputCommand.new()
 	for i in ticks:
@@ -58,6 +62,7 @@ func _run_scripted(ticks: int) -> Vector2:
 
 func test_structure_strikes_an_enemy_in_range() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	sim.add_structure(0, Vector2.ZERO, 1000, 50, 200.0, 60)
 	var enemy := sim.add_entity(1, Vector2(100.0, 0.0), 0.0, 600)
 	sim.step({})
@@ -66,6 +71,7 @@ func test_structure_strikes_an_enemy_in_range() -> void:
 
 func test_structure_ignores_an_enemy_out_of_range() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	sim.add_structure(0, Vector2.ZERO, 1000, 50, 200.0, 60)
 	var enemy := sim.add_entity(1, Vector2(300.0, 0.0), 0.0, 600)
 	sim.step({})
@@ -74,6 +80,7 @@ func test_structure_ignores_an_enemy_out_of_range() -> void:
 
 func test_structure_does_not_strike_an_ally() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	sim.add_structure(0, Vector2.ZERO, 1000, 50, 200.0, 60)
 	var ally := sim.add_entity(0, Vector2(100.0, 0.0), 0.0, 600)
 	sim.step({})
@@ -82,6 +89,7 @@ func test_structure_does_not_strike_an_ally() -> void:
 
 func test_attack_respects_its_cooldown() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	sim.add_structure(0, Vector2.ZERO, 1000, 50, 200.0, 60)
 	var enemy := sim.add_entity(1, Vector2(100.0, 0.0), 0.0, 600)
 	for _i in 60:
@@ -93,6 +101,7 @@ func test_attack_respects_its_cooldown() -> void:
 
 func test_an_entity_dies_when_its_hp_reaches_zero() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	sim.add_structure(0, Vector2.ZERO, 1000, 100, 200.0, 60)
 	var enemy := sim.add_entity(1, Vector2(100.0, 0.0), 0.0, 100)
 	sim.step({})
@@ -101,6 +110,7 @@ func test_an_entity_dies_when_its_hp_reaches_zero() -> void:
 
 func test_nexus_destruction_sets_the_winner_and_freezes_the_match() -> void:
 	var sim := SimCore.new()
+	sim.spawn_creeps = false
 	sim.add_structure(0, Vector2.ZERO, 100, 0, 0.0, 0, true)  # team 0 nexus
 	# A team 1 attacker in range (a stand-in for the creeps that arrive next).
 	sim.add_structure(1, Vector2(100.0, 0.0), 1000, 100, 200.0, 60)
@@ -164,3 +174,106 @@ func _snapshot(state: SimState) -> Array:
 		var entity: SimEntity = state.entities[id]
 		rows.append([id, entity.hp, entity.position.round()])
 	return rows
+
+
+# --- Creeps: lane marching, contact combat, and the wave schedule -----------
+
+
+func test_a_creep_marches_its_lane_toward_the_enemy_nexus() -> void:
+	var sim := SimCore.new()
+	sim.spawn_creeps = false
+	var path := MapData.lane_path(0, 0)
+	var creep := sim.add_creep(0, 0, path[0])
+	var start := sim.state.get_entity(creep).position
+	for _i in SimCore.TICK_RATE:
+		sim.step({})
+	var here := sim.state.get_entity(creep).position
+	assert_true(here.distance_to(start) > 0.0, "a creep with a clear lane keeps moving")
+	assert_true(
+		here.distance_to(path[1]) < start.distance_to(path[1]),
+		"it advances toward its next waypoint",
+	)
+
+
+func test_a_creep_holds_position_to_fight_an_enemy_in_range() -> void:
+	var sim := SimCore.new()
+	sim.spawn_creeps = false
+	var spawn := MapData.lane_path(0, 0)[0]
+	var creep := sim.add_creep(0, 0, spawn)
+	# An enemy parked just inside the creep's reach: the creep must stop to fight.
+	var enemy := sim.add_entity(1, spawn + Vector2(SimCore.CREEP_RANGE - 10.0, 0.0), 0.0, 600)
+	sim.step({})
+	assert_eq(
+		sim.state.get_entity(creep).position,
+		spawn,
+		"a creep with an enemy in range holds to fight",
+	)
+	assert_eq(
+		sim.state.get_entity(enemy).hp,
+		600 - SimCore.CREEP_DAMAGE,
+		"and strikes it through the shared combat primitive",
+	)
+
+
+func test_an_unopposed_creep_destroys_the_enemy_nexus_and_wins() -> void:
+	var sim := SimCore.new()
+	sim.spawn_creeps = false
+	# A team-1 nexus weak enough to fall to two creep hits, and a lone team-0 creep
+	# already in range — the win condition driven entirely by a creep.
+	var nexus := sim.add_structure(1, Vector2.ZERO, SimCore.CREEP_DAMAGE * 2, 0, 0.0, 0, true)
+	sim.add_creep(0, 0, Vector2(SimCore.CREEP_RANGE - 10.0, 0.0))
+	for _i in SimCore.CREEP_COOLDOWN_TICKS + 2:
+		sim.step({})
+	assert_null(sim.state.get_entity(nexus), "the creep's strikes destroy the enemy nexus")
+	assert_true(sim.state.is_match_over(), "felling the nexus ends the match")
+	assert_eq(sim.state.winner, 0, "the creep's team wins")
+
+
+func test_creep_waves_spawn_on_the_wave_schedule() -> void:
+	var sim := SimCore.new()  # spawn_creeps defaults on
+	var per_wave := SimCore.CREEP_PER_WAVE * MapData.lane_count() * MapData.NEXUS_POSITIONS.size()
+	sim.step({})  # tick 0 -> the opening wave
+	assert_eq(
+		_count_creeps(sim.state),
+		per_wave,
+		"a full wave spawns for both teams on every lane at tick 0",
+	)
+	# Clear the wave so the two teams' creeps can't clash and confound the count,
+	# leaving the schedule the only thing that adds creeps.
+	for id in sim.state.entities.keys():
+		if sim.state.entities[id].is_creep:
+			sim.state.entities.erase(id)
+	for _i in SimCore.CREEP_WAVE_INTERVAL_TICKS - 1:
+		sim.step({})
+	assert_eq(_count_creeps(sim.state), 0, "no wave spawns between intervals")
+	sim.step({})  # the next interval boundary
+	assert_eq(_count_creeps(sim.state), per_wave, "the next wave spawns on the interval")
+
+
+func test_creep_waves_are_mirror_fair() -> void:
+	var sim := SimCore.new()
+	sim.step({})  # spawn and advance the opening waves one tick
+	for id in sim.state.entities:
+		var creep: SimEntity = sim.state.entities[id]
+		if not creep.is_creep or creep.team != 0:
+			continue
+		assert_not_null(
+			_creep_at(sim.state, 1, -creep.position),
+			"every team-0 creep has a team-1 creep mirrored through the origin",
+		)
+
+
+func _count_creeps(state: SimState) -> int:
+	var n := 0
+	for id in state.entities:
+		if state.entities[id].is_creep:
+			n += 1
+	return n
+
+
+func _creep_at(state: SimState, team: int, position: Vector2) -> SimEntity:
+	for id in state.entities:
+		var creep: SimEntity = state.entities[id]
+		if creep.is_creep and creep.team == team and creep.position.is_equal_approx(position):
+			return creep
+	return null

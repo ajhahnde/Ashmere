@@ -26,6 +26,10 @@ protocol version.
 
 ### Added
 
+- Lane creeps: each team spawns periodic creep waves that march their lane
+  toward the enemy base, stop to fight whatever they meet, siege towers, and can
+  drive an undefended nexus to destruction — making the win condition reachable
+  in live play.
 - Towers and a destructible nexus: structures auto-attack the nearest enemy in
   range, units and structures carry health and can be destroyed, and a match
   ends when a team's nexus falls.

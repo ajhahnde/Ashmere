@@ -31,6 +31,14 @@ var cooldown: int = 0
 var is_structure: bool = false
 var is_nexus: bool = false
 
+## A creep is an AI-driven mobile unit that marches a lane and fights on contact.
+## It takes no player input: `lane` selects which corridor it walks and
+## `waypoint_index` is the index of the lane waypoint it is currently heading
+## for, advancing as it arrives until it reaches the enemy nexus.
+var is_creep: bool = false
+var lane: int = 0
+var waypoint_index: int = 0
+
 
 func _init(
 	p_id: int = 0,
