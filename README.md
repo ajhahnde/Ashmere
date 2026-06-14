@@ -89,8 +89,9 @@ start a listen-server, or type an address and **Join** one. Practice fields the 
 Solane squad on each team — you drive one hero (the lion by default, or pass
 `--hero cheetah`/`--hero hyena` on the command line), bots drive the rest. A hosted
 or joined match is still a one-hero-per-team duel on the lion until multi-hero play
-reaches the wire. Move the hero with **WASD** or the **arrow keys**; the bots
-walk toward the nearest enemy. Cast its abilities with
+reaches the wire. Move the hero with **WASD** or the **arrow keys**; the bots close
+on the nearest enemy and cast their own kits — healing when hurt, otherwise firing
+the reachable ability of their form. Cast its abilities with
 **1–4**, aimed at the mouse cursor — the hero shifts between a human and an animal
 form (shown by the ring around it, white or amber), each form a different set of
 abilities drawing on its own resource (the bar under the health bar). Abilities are

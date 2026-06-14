@@ -35,6 +35,11 @@ protocol version.
 
 ### Added
 
+- Bots now cast their hero kit, not just walk: a bot heals itself when its health
+  drops and otherwise fires the first damaging ability of its active form that can
+  actually reach its target, picking the aim the way a player would. The reach test
+  mirrors each ability's landing geometry, so a bot never wastes a cast on empty air.
+  This makes a practice squad fight with abilities instead of only auto-attacking.
 - A practice match now fields the full **Solane** squad on each team — one hero per
   kit (Lion, Cheetah, Hyena) — so all three are on the field at once. The player drives
   one (the Lion by default, or `--hero cheetah`/`--hero hyena`) and bots drive the rest.
