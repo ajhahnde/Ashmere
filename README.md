@@ -34,8 +34,9 @@ lanes and an equatorial jungle to break each other's nexus.
 The first milestone is a **walking skeleton**: one player-controlled hero and
 one bot moving on the 3v3 arena under a server-authoritative, fixed-timestep
 simulation. With that authority model proven, networked play over a
-listen-server now runs on top of it; heroes, abilities, and the art direction
-come next.
+listen-server, the hero ability layer, and the first roster of heroes — the
+**Solane**, savanna big-cat shifters (lion, cheetah, hyena) — now run on top of
+it; the opposing Volk, multi-hero teams, and the art direction come next.
 
 ## Architecture
 
@@ -82,8 +83,9 @@ godot --path .
 ```
 
 A connect screen opens: choose **Practice** for a single-machine match, **Host** to
-start a listen-server, or type an address and **Join** one. Move the hero with
-**WASD** or the **arrow keys**; the bot walks toward it. Cast its abilities with
+start a listen-server, or type an address and **Join** one. Both sides field the
+Solane lion today. Move the hero with **WASD** or the **arrow keys**; the bot
+walks toward it. Cast its abilities with
 **1–4**, aimed at the mouse cursor — the hero shifts between a human and an animal
 form (shown by the ring around it, white or amber), each form a different set of
 abilities drawing on its own resource (the bar under the health bar). Abilities are

@@ -35,6 +35,14 @@ protocol version.
 
 ### Added
 
+- The first roster of distinct heroes — the **Solane**, a Volk of savanna big-cat
+  shifters: a **Lion** frontline bruiser (short-range pokes, a heavy melee strike, and
+  the deepest self-sustain), a **Cheetah** burst skirmisher (long-range pokes and a
+  fast, repeatable single-target shred), and a **Hyena** zone controller (the widest
+  ground areas for attrition). Each carries its own human and animal kit, drawn from the
+  shared ability primitives but set apart by its targeting mix, tuning, and resource
+  economy. The current match equips the Lion for both sides; the Cheetah and Hyena are
+  authored and reachable once per-team hero selection lands.
 - Ability controls: the player now casts the hero's abilities with the **1–4** keys,
   aimed at the mouse cursor, and shifts the hero between its human and animal form to
   wield each form's distinct set. The hero shows its current form (a ring around it)

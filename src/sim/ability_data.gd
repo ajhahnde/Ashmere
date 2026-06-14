@@ -6,10 +6,22 @@ extends RefCounted
 ## executor reads to act. New abilities and heroes are added here, by value, with
 ## no engine or render coupling, so the whole roster stays unit-testable.
 ##
-## v0.1 ships one proving kit, "wildkin": a generic shapeshifter that exercises the
-## whole schema — all four targeting modes, the three effects, a per-form resource,
-## and the human/animal transform. The distinct Theria heroes are authored against
-## this same catalog in a later slice.
+## "wildkin" is the schema-proving kit: a generic shapeshifter that exercises the
+## whole catalog — all four targeting modes, the three effects, a per-form resource,
+## and the human/animal transform. It stays as the reference the schema tests drive.
+##
+## The first Volk's roster is authored on top of it: the **Solane** — savanna big-cat
+## shifters. Three mirror heroes, each a human kit plus an animal kit, built
+## from the same DAMAGE/HEAL/TRANSFORM primitives but given distinct identities through
+## their targeting mix, their tuning, and their resource economy:
+##   - **Lion**    — a frontline bruiser: short-range poke, a heavy single-target Maul,
+##                   and the deepest self-sustain, on a generous, slow-spending pool.
+##   - **Cheetah** — a burst skirmisher: long-range pokes and a repeatable single-target
+##                   shred, on a lean, fast-regenerating pool (hit and run).
+##   - **Hyena**   — a zone controller: the widest ground areas in both forms for
+##                   attrition, on a baseline pool.
+## v0.1 is a mirror match, so both teams draw from this one Volk; the opposing Volk
+## (the Verdani draft) is authored when the second Volk lands.
 
 ## Ability rows keyed by catalog id. Each row is parsed on demand into a typed
 ## AbilitySpec by `spec`; a sparse row leans on the spec defaults. The dictionary's
@@ -93,6 +105,236 @@ const ABILITIES := {
 		"cooldown_ticks": 60,
 		"effect": AbilitySpec.EFFECT_TRANSFORM,
 	},
+	# --- Solane: Lion, human form (a short-range bruiser with deep self-sustain) ---
+	10:
+	{
+		"id": 10,
+		"name": "Sunfire Lash",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_SKILLSHOT,
+		"range": 450.0,
+		"radius": 70.0,
+		"cost": 25,
+		"cooldown_ticks": 36,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 65,
+	},
+	11:
+	{
+		"id": 11,
+		"name": "Mane Guard",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 1,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 35,
+		"cooldown_ticks": 150,
+		"effect": AbilitySpec.EFFECT_HEAL,
+		"power": 150,  # the deepest heal in the Volk: the bruiser's staying power
+	},
+	12:
+	{
+		"id": 12,
+		"name": "Lion Form",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Solane: Lion, animal form (engage area, then a heavy melee burst) --------
+	13:
+	{
+		"id": 13,
+		"name": "Pounce",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_GROUND,
+		"range": 350.0,
+		"radius": 160.0,
+		"cost": 25,
+		"cooldown_ticks": 30,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 70,
+	},
+	14:
+	{
+		"id": 14,
+		"name": "Maul",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 2,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 190.0,  # melee: the bruiser must close to land its payoff
+		"cost": 35,
+		"cooldown_ticks": 48,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 160,  # the hardest single hit in the Volk
+	},
+	15:
+	{
+		"id": 15,
+		"name": "Human Form",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Solane: Cheetah, human form (long pokes on a lean, fast pool) ------------
+	20:
+	{
+		"id": 20,
+		"name": "Spear Throw",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_SKILLSHOT,
+		"range": 750.0,  # the longest reach in the Volk
+		"radius": 50.0,  # but a tight line: it must be aimed
+		"cost": 20,
+		"cooldown_ticks": 24,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 90,
+	},
+	21:
+	{
+		"id": 21,
+		"name": "Second Wind",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 1,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 25,
+		"cooldown_ticks": 100,
+		"effect": AbilitySpec.EFFECT_HEAL,
+		"power": 80,  # a skirmisher's top-up, not the Lion's wall
+	},
+	22:
+	{
+		"id": 22,
+		"name": "Cheetah Form",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Solane: Cheetah, animal form (single-target shred, repeatable) -----------
+	23:
+	{
+		"id": 23,
+		"name": "Hamstring",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 280.0,
+		"cost": 15,
+		"cooldown_ticks": 18,  # the shortest cooldown in the Volk: harass on repeat
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 70,
+	},
+	24:
+	{
+		"id": 24,
+		"name": "Killing Blow",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 2,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 220.0,
+		"cost": 35,
+		"cooldown_ticks": 50,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 140,
+	},
+	25:
+	{
+		"id": 25,
+		"name": "Human Form",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Solane: Hyena, human form (the widest ground zone for attrition) ---------
+	30:
+	{
+		"id": 30,
+		"name": "Bone-Hex",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_GROUND,
+		"range": 600.0,
+		"radius": 190.0,
+		"cost": 30,
+		"cooldown_ticks": 40,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 55,
+	},
+	31:
+	{
+		"id": 31,
+		"name": "Scavenge",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 1,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 30,
+		"cooldown_ticks": 120,
+		"effect": AbilitySpec.EFFECT_HEAL,
+		"power": 100,
+	},
+	32:
+	{
+		"id": 32,
+		"name": "Hyena Form",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Solane: Hyena, animal form (a bite, and a wide pack slam) ----------------
+	33:
+	{
+		"id": 33,
+		"name": "Rending Bite",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 200.0,
+		"cost": 20,
+		"cooldown_ticks": 30,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 90,
+	},
+	34:
+	{
+		"id": 34,
+		"name": "Pack Frenzy",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 2,
+		"target_kind": AbilitySpec.TARGET_GROUND,
+		"range": 320.0,
+		"radius": 210.0,  # the widest area in the Volk
+		"cost": 35,
+		"cooldown_ticks": 44,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 60,
+	},
+	35:
+	{
+		"id": 35,
+		"name": "Human Form",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
 }
 
 ## Hero kits keyed by kit id. A kit names, per form, the resource pool (`max` and
@@ -114,6 +356,51 @@ const KITS := {
 		{
 			AbilitySpec.FORM_HUMAN: {0: 1, 1: 2, 3: 3},
 			AbilitySpec.FORM_ANIMAL: {0: 4, 2: 5, 3: 6},
+		},
+	},
+	# --- Solane (savanna big-cats), the v0.1 mirror Volk ---------------------
+	"lion":
+	{
+		# A bruiser: a generous pool that spends slowly, to back the deep heal and
+		# the heavy Maul.
+		"resource":
+		{
+			AbilitySpec.FORM_HUMAN: {"max": 120, "regen_ticks": 10},
+			AbilitySpec.FORM_ANIMAL: {"max": 120, "regen_ticks": 10},
+		},
+		"abilities":
+		{
+			AbilitySpec.FORM_HUMAN: {0: 10, 1: 11, 3: 12},
+			AbilitySpec.FORM_ANIMAL: {0: 13, 2: 14, 3: 15},
+		},
+	},
+	"cheetah":
+	{
+		# A skirmisher: a lean pool that refills fast, to chain cheap pokes and the
+		# low-cooldown Hamstring.
+		"resource":
+		{
+			AbilitySpec.FORM_HUMAN: {"max": 80, "regen_ticks": 8},
+			AbilitySpec.FORM_ANIMAL: {"max": 80, "regen_ticks": 8},
+		},
+		"abilities":
+		{
+			AbilitySpec.FORM_HUMAN: {0: 20, 1: 21, 3: 22},
+			AbilitySpec.FORM_ANIMAL: {0: 23, 2: 24, 3: 25},
+		},
+	},
+	"hyena":
+	{
+		# A zone controller: a baseline pool feeding the wide ground areas.
+		"resource":
+		{
+			AbilitySpec.FORM_HUMAN: {"max": 100, "regen_ticks": 12},
+			AbilitySpec.FORM_ANIMAL: {"max": 100, "regen_ticks": 12},
+		},
+		"abilities":
+		{
+			AbilitySpec.FORM_HUMAN: {0: 30, 1: 31, 3: 32},
+			AbilitySpec.FORM_ANIMAL: {0: 33, 2: 34, 3: 35},
 		},
 	},
 }

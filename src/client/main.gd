@@ -71,9 +71,11 @@ const CREEP_HP_BAR_OFFSET := Vector2(-35.0, -55.0)
 const HP_BAR_BG := Color(0.0, 0.0, 0.0, 0.6)
 const HP_BAR_FG := Color(0.4, 0.85, 0.4)
 
-## The proving kit every hero is equipped with for v0.1 (see AbilityData). The
-## distinct per-Volk kits replace it once the roster is authored.
-const HERO_KIT := "wildkin"
+## The kit every seated hero is equipped with for v0.1 (see AbilityData). Both teams
+## mirror-pick the same Solane hero today; per-team hero selection arrives with the
+## multi-hero (3v3) slice, when the other authored Solane kits ("cheetah", "hyena")
+## become reachable in-game.
+const HERO_KIT := "lion"
 
 ## Ability bar keys, one per slot (0..3). Movement owns WASD/arrows, so the four
 ## abilities sit on the number row rather than QWER. A held key recasts the slot as
