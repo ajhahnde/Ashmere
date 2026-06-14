@@ -27,7 +27,7 @@
 ## About
 
 Ashmere is a 2.5D top-down, pixel-art multiplayer online battle arena built in
-Godot 4. Fabled creatures — *Fabelwesen* — fight over the drowned ruins of
+Godot 4. Fabled creatures fight over the drowned ruins of
 Ashmere, a fabled city lost to ash and water. Two teams of three contest lanes
 and a jungle to break each other's nexus.
 
@@ -54,13 +54,13 @@ later as another driver without rewriting gameplay.
 
 ## Layout
 
-| Path | Contents |
-| :--- | :--- |
-| `src/sim` | The authoritative simulation core and its data types. |
-| `src/bot` | Bot input derived from the world state. |
-| `src/client` | Local input sampling and rendering. |
-| `test/unit` | Headless tests of the simulation. |
-| `scenes` | Godot scenes. |
+| Path           | Contents                                              |
+| :------------- | :---------------------------------------------------- |
+| `src/sim`    | The authoritative simulation core and its data types. |
+| `src/bot`    | Bot input derived from the world state.               |
+| `src/client` | Local input sampling and rendering.                   |
+| `test/unit`  | Headless tests of the simulation.                     |
+| `scenes`     | Godot scenes.                                         |
 
 ## Running
 
