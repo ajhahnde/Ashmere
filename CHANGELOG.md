@@ -35,6 +35,12 @@ protocol version.
 
 ### Added
 
+- A practice match can now be set up entirely from the connect screen: a hero picker lists
+  every hero of both tribes, and the choice drives the same tribe-versus-tribe seating as the
+  command line's `--hero`, so picking a side no longer needs a flag. On the field, each hero
+  now wears a distinct shade of its team colour, so three squadmates read apart at a glance
+  instead of sharing one flat colour. Presentation and menu only; the simulation and the
+  netcode protocol are unchanged.
 - Bots now position to their hero's stance instead of all closing in the same way: the
   skirmishers (Cheetah, Chameleon) kite — they hold their ranged form and keep an enemy
   inside their skillshot band, backing off a point-blank attacker and closing on a distant

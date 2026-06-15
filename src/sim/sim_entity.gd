@@ -71,6 +71,13 @@ var form_resource_regen: PackedInt32Array = PackedInt32Array([0, 0])
 ## transforms back to it.
 var ability_cooldowns: Dictionary = {}
 
+## The kit this hero was equipped with (an AbilityData kit id), or "" for a non-hero
+## or an unequipped hero. The hero's identity: the renderer tints each kit distinctly,
+## so squadmates sharing a team read apart while keeping the team hue. Set at
+## SimCore.equip_kit; not carried on the wire — the networked duel is one hero per
+## team, already distinguished by team colour.
+var kit_id: String = ""
+
 ## The hero's bar, by form: `kit[form][slot]` is the ability id in that slot, or
 ## absent for an empty slot. Set once when the kit is equipped; the catalog holds
 ## the immutable specs the ids resolve to.
@@ -117,6 +124,7 @@ func clone() -> SimEntity:
 	copy.is_hero = is_hero
 	copy.form = form
 	copy.stance = stance
+	copy.kit_id = kit_id
 	copy.resource = resource
 	copy.resource_max = resource_max
 	copy.resource_regen_ticks = resource_regen_ticks

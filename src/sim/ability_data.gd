@@ -766,6 +766,16 @@ static func tribe_of(kit_id: String) -> String:
 	return ""
 
 
+## A hero kit's seat index within its tribe (0..n-1, the order it sits in `TRIBE`), or -1
+## if the kit is in no tribe (the wildkin reference kit, or an unknown name). The renderer
+## shades a hero's team colour by this index so squadmates read apart; a pure roster lookup.
+static func roster_index(kit_id: String) -> int:
+	var tribe := tribe_of(kit_id)
+	if tribe == "":
+		return -1
+	return (TRIBE[tribe] as Array).find(kit_id)
+
+
 ## The tribe a given tribe is matched against — the next other tribe in declaration order.
 ## v0.1 fields exactly two, so this is simply "the other one"; returns `tribe` itself if
 ## it is the only tribe defined.

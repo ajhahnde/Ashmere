@@ -195,6 +195,9 @@ func test_equip_stamps_the_kit_stance() -> void:
 	var lion := _hero(sim, "lion", Vector2(50.0, 0.0))
 	assert_eq(sim.state.get_entity(cheetah).stance, AbilityData.STANCE_KITE, "the cheetah kites")
 	assert_eq(sim.state.get_entity(lion).stance, AbilityData.STANCE_BRAWL, "the lion brawls")
+	# Equip also stamps the kit id — the hero's identity the renderer tints by.
+	assert_eq(sim.state.get_entity(cheetah).kit_id, "cheetah", "the cheetah carries its kit id")
+	assert_eq(sim.state.get_entity(lion).kit_id, "lion", "the lion carries its kit id")
 
 
 func test_a_kiter_backs_off_a_point_blank_enemy_instead_of_meleeing() -> void:

@@ -27,3 +27,13 @@ func test_tribe_rosters_seat_three_heroes_each_in_order() -> void:
 	# The seat a hero lands in is its index here — the slot _start_local hands the player.
 	var spider_seat := (AbilityData.TRIBE["verdani"] as Array).find("spider")
 	assert_eq(spider_seat, 1, "the spider is the second Verdani seat")
+
+
+func test_roster_index_reports_a_heros_seat_within_its_tribe() -> void:
+	# The renderer shades a hero's team colour by this seat, so squadmates read apart.
+	assert_eq(AbilityData.roster_index("lion"), 0, "the lion leads the Solane")
+	assert_eq(AbilityData.roster_index("hyena"), 2, "the hyena is the third Solane seat")
+	assert_eq(AbilityData.roster_index("snake"), 0, "the snake leads the Verdani")
+	assert_eq(AbilityData.roster_index("chameleon"), 2, "the chameleon is the third Verdani seat")
+	assert_eq(AbilityData.roster_index("wildkin"), -1, "the reference kit has no roster seat")
+	assert_eq(AbilityData.roster_index("griffin"), -1, "an unknown kit has no roster seat")

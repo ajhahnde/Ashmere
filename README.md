@@ -89,10 +89,11 @@ godot --path .
 
 A connect screen opens: choose **Practice** for a single-machine match, **Host** to
 start a listen-server, or type an address and **Join** one. Practice is a tribe-vs-tribe
-match: `--hero` names the hero you drive — any hero of either tribe — and that hero's
-tribe fields your team while the opposing tribe fills the bots, so `--hero snake` puts you
-on the Verdani against the Solane, and the default lion keeps the Solane against the
-Verdani. Bots drive the other five seats. A hosted or joined match is still a
+match: pick the hero you drive from the menu's roster list — any hero of either tribe — and
+that hero's tribe fields your team while the opposing tribe fills the bots, so picking the
+snake puts you on the Verdani against the Solane, and the default lion keeps the Solane
+against the Verdani. The command line's `--hero` makes the same choice for a launch that
+skips the menu. Bots drive the other five seats. A hosted or joined match is still a
 one-hero-per-team duel on the lion until multi-hero play
 reaches the wire. Move the hero with **WASD** or the **arrow keys**; the bots fight to their kit's
 stance — brawlers close on the nearest enemy and shift into the form that keeps a hit
@@ -102,7 +103,8 @@ poke range and back off rather than melee — and all cast their own kits, heali
 hurt and otherwise firing the reachable ability of their form. Cast its abilities with
 **1–4**, aimed at the mouse cursor — the hero shifts between a human and an animal
 form (shown by the ring around it, white or amber), each form a different set of
-abilities drawing on its own resource (the bar under the health bar). Abilities are
+abilities drawing on its own resource (the bar under the health bar). Each hero wears a
+distinct shade of its team colour, so your three squadmates read apart at a glance. Abilities are
 cast in a single-machine or hosted match; a joined client moves but does not yet
 cast.
 

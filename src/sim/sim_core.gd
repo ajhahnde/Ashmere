@@ -128,6 +128,7 @@ func equip_kit(hero_id: int, kit_id: String) -> void:
 	hero.is_hero = true
 	hero.form = AbilitySpec.FORM_HUMAN
 	hero.stance = kit_def.get("stance", AbilityData.STANCE_BRAWL)
+	hero.kit_id = kit_id
 	hero.kit = (kit_def["abilities"] as Dictionary).duplicate(true)
 	hero.form_resource_max = PackedInt32Array(
 		[res[AbilitySpec.FORM_HUMAN]["max"], res[AbilitySpec.FORM_ANIMAL]["max"]]

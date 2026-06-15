@@ -46,6 +46,12 @@ const HERO_COLOR := Color(0.36, 0.66, 1.0)
 const BOT_COLOR := Color(1.0, 0.42, 0.38)
 const ENTITY_RADIUS := 44.0
 
+## Per-hero tint: a team's heroes share its base colour but each is shaded by its roster
+## seat (0..2), so three squadmates read apart while the team hue stays obvious. Indexed
+## by `AbilityData.roster_index`; a positive value lightens, a negative one darkens. A hero
+## with no roster seat (an unknown kit) falls back to the flat team colour.
+const HERO_SHADES: Array[float] = [0.0, 0.28, -0.22]
+
 ## Creeps render as small, darkened team-coloured circles so a wave reads as a
 ## cluster distinct from the larger heroes.
 const CREEP_RADIUS := 22.0
@@ -257,6 +263,7 @@ func _is_headless() -> bool:
 func _open_connect_menu() -> void:
 	var menu := ConnectMenu.new()
 	menu.default_address = DEFAULT_JOIN_ADDRESS
+	menu.default_hero = _player_hero
 	menu.practice_requested.connect(_on_practice_requested)
 	menu.host_requested.connect(_on_host_requested)
 	menu.join_requested.connect(_on_join_requested)
@@ -265,8 +272,12 @@ func _open_connect_menu() -> void:
 	add_child(_menu_layer)
 
 
-func _on_practice_requested() -> void:
+## The menu's Practice choice carries the hero the player picked; it overrides any
+## `--hero` parsed from the command line, and (like `--hero`) its tribe fields the player's
+## team and the opposing tribe the bots, so the pick also chooses the match-up.
+func _on_practice_requested(hero: String) -> void:
 	_mode = Mode.LOCAL
+	_player_hero = hero
 	_close_menu_and_enter()
 
 
@@ -566,7 +577,7 @@ func _draw_entities() -> void:
 			draw_circle(entity.position, CREEP_RADIUS, _team_color(entity.team).darkened(CREEP_DARKEN))
 			_draw_hp_bar(entity, CREEP_HP_BAR_SIZE, CREEP_HP_BAR_OFFSET)
 		else:
-			draw_circle(entity.position, ENTITY_RADIUS, _team_color(entity.team))
+			draw_circle(entity.position, ENTITY_RADIUS, _hero_color(entity))
 			_draw_hp_bar(entity, HP_BAR_SIZE, HP_BAR_OFFSET)
 			if entity.is_hero:
 				_draw_form_ring(entity)
@@ -604,6 +615,19 @@ func _draw_resource_bar(entity: SimEntity) -> void:
 
 func _team_color(team: int) -> Color:
 	return HERO_COLOR if team == HERO_TEAM else BOT_COLOR
+
+
+## A hero's draw colour: its team colour shaded by its roster seat, so squadmates on one
+## team read apart while still wearing the team hue. A non-hero or a hero whose kit sits in
+## no tribe (an unequipped or unknown one) keeps the flat team colour. Structures and creeps
+## use `_team_color` directly — only heroes share a team three at a time.
+func _hero_color(entity: SimEntity) -> Color:
+	var base := _team_color(entity.team)
+	var slot := AbilityData.roster_index(entity.kit_id)
+	if slot < 0 or slot >= HERO_SHADES.size():
+		return base
+	var shade := HERO_SHADES[slot]
+	return base.lightened(shade) if shade >= 0.0 else base.darkened(-shade)
 
 
 func _sample_player_input() -> InputCommand:
