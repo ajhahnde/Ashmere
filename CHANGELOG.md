@@ -35,6 +35,14 @@ protocol version.
 
 ### Added
 
+- A second hero roster, the **Verdani** — jungle venom-and-shadow shifters (snake,
+  spider, chameleon) — joins the Solane as the opposing Volk, authored on the same
+  ability primitives as a deliberate foil: the snake is a venom striker with the
+  longest single-target lock, the spider a trapper laying the widest, lowest-power
+  ground webs, and the chameleon an ambusher carrying the single heaviest hit of either
+  roster. A practice match now fields the player's Solane squad against a bot Verdani
+  squad rather than a Solane mirror, so both rosters are exercised at once. Sim-side
+  content only; the netcode protocol is unchanged.
 - Bots now shapeshift mid-fight instead of fighting from one form: a bot transforms
   toward the form that can land a hit when its current one cannot — closing into its
   harder-hitting animal kit as an enemy slips inside the human poke's range, and back

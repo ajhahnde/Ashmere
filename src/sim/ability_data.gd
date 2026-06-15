@@ -20,8 +20,19 @@ extends RefCounted
 ##                   shred, on a lean, fast-regenerating pool (hit and run).
 ##   - **Hyena**   — a zone controller: the widest ground areas in both forms for
 ##                   attrition, on a baseline pool.
-## v0.1 is a mirror match, so both teams draw from this one Volk; the opposing Volk
-## (the Verdani draft) is authored when the second Volk lands.
+##
+## The opposing Volk, the **Verdani** — jungle venom-and-shadow shifters — is authored
+## on the same primitives, a deliberate foil to the Solane archetypes:
+##   - **Snake**     — a venom striker: a long single-target lock, a cheap low-cooldown
+##                     Fang Strike, and a heavy Venom Coil payoff, on a mid-tier pool.
+##   - **Spider**    — a trapper: the longest, widest, lowest-power ground webs in the
+##                     game for pure attrition, on the deepest, slowest-regen pool.
+##   - **Chameleon** — an ambusher: a short hard skillshot and the single heaviest hit
+##                     in either Volk, on the leanest, fastest-refilling pool.
+## In a practice match the player's squad fields the Solane and the bot squad the
+## Verdani, so both rosters and all four targeting modes are exercised at once. The two
+## Volk are still effect-mirrors (DAMAGE/HEAL/TRANSFORM); the venom/web flavor is carried
+## by their targeting mix, tuning, and economy until a richer effect schema lands.
 
 ## Ability rows keyed by catalog id. Each row is parsed on demand into a typed
 ## AbilitySpec by `spec`; a sparse row leans on the spec defaults. The dictionary's
@@ -335,6 +346,236 @@ const ABILITIES := {
 		"cooldown_ticks": 60,
 		"effect": AbilitySpec.EFFECT_TRANSFORM,
 	},
+	# --- Verdani: Snake, human form (a long venom poke on a precise pool) ----------
+	40:
+	{
+		"id": 40,
+		"name": "Venom Spit",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_SKILLSHOT,
+		"range": 650.0,  # a long reach, just shy of the Cheetah's signature spear
+		"radius": 55.0,  # but a thin line: it must be aimed
+		"cost": 20,
+		"cooldown_ticks": 24,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 70,
+	},
+	41:
+	{
+		"id": 41,
+		"name": "Shed Skin",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 1,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 30,
+		"cooldown_ticks": 110,
+		"effect": AbilitySpec.EFFECT_HEAL,
+		"power": 90,
+	},
+	42:
+	{
+		"id": 42,
+		"name": "Serpent Form",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Verdani: Snake, animal form (the longest single-target lock, then a payoff) ---
+	43:
+	{
+		"id": 43,
+		"name": "Fang Strike",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 360.0,  # the longest single-target lock in either Volk
+		"cost": 15,
+		"cooldown_ticks": 18,  # cheap and fast: harass on repeat
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 75,
+	},
+	44:
+	{
+		"id": 44,
+		"name": "Venom Coil",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 2,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 300.0,
+		"cost": 35,
+		"cooldown_ticks": 50,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 150,
+	},
+	45:
+	{
+		"id": 45,
+		"name": "Human Form",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Verdani: Spider, human form (the longest, widest web for attrition) -------
+	50:
+	{
+		"id": 50,
+		"name": "Web Snare",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_GROUND,
+		"range": 620.0,
+		"radius": 200.0,
+		"cost": 30,
+		"cooldown_ticks": 38,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 50,  # the lowest per-hit power in either Volk: pure attrition
+	},
+	51:
+	{
+		"id": 51,
+		"name": "Silk Mend",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 1,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 30,
+		"cooldown_ticks": 120,
+		"effect": AbilitySpec.EFFECT_HEAL,
+		"power": 100,
+	},
+	52:
+	{
+		"id": 52,
+		"name": "Spider Form",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Verdani: Spider, animal form (a close bite, then the widest nest) ----------
+	53:
+	{
+		"id": 53,
+		"name": "Venom Bite",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 210.0,
+		"cost": 20,
+		"cooldown_ticks": 30,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 85,
+	},
+	54:
+	{
+		"id": 54,
+		"name": "Web Nest",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 2,
+		"target_kind": AbilitySpec.TARGET_GROUND,
+		"range": 340.0,
+		"radius": 220.0,  # the widest area in either Volk
+		"cost": 35,
+		"cooldown_ticks": 46,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 55,
+	},
+	55:
+	{
+		"id": 55,
+		"name": "Human Form",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Verdani: Chameleon, human form (a short, hard skillshot on a lean pool) ----
+	60:
+	{
+		"id": 60,
+		"name": "Tongue Lash",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_SKILLSHOT,
+		"range": 380.0,  # short: the ambusher fights up close
+		"radius": 60.0,
+		"cost": 25,
+		"cooldown_ticks": 30,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 95,  # a heavy poke for its range
+	},
+	61:
+	{
+		"id": 61,
+		"name": "Blend",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 1,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 25,
+		"cooldown_ticks": 100,
+		"effect": AbilitySpec.EFFECT_HEAL,
+		"power": 75,  # a skirmisher's top-up, not a wall
+	},
+	62:
+	{
+		"id": 62,
+		"name": "Chameleon Form",
+		"form": AbilitySpec.FORM_HUMAN,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
+	# --- Verdani: Chameleon, animal form (a cheap dart, then the heaviest ambush) ---
+	63:
+	{
+		"id": 63,
+		"name": "Color Dart",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 0,
+		"target_kind": AbilitySpec.TARGET_SKILLSHOT,
+		"range": 300.0,
+		"radius": 50.0,
+		"cost": 15,
+		"cooldown_ticks": 20,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 60,
+	},
+	64:
+	{
+		"id": 64,
+		"name": "Ambush",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 2,
+		"target_kind": AbilitySpec.TARGET_UNIT,
+		"range": 200.0,  # melee: the payoff for closing the gap
+		"cost": 35,
+		"cooldown_ticks": 52,
+		"effect": AbilitySpec.EFFECT_DAMAGE,
+		"power": 165,  # the single heaviest hit in either Volk
+	},
+	65:
+	{
+		"id": 65,
+		"name": "Human Form",
+		"form": AbilitySpec.FORM_ANIMAL,
+		"slot": 3,
+		"target_kind": AbilitySpec.TARGET_SELF,
+		"cost": 0,
+		"cooldown_ticks": 60,
+		"effect": AbilitySpec.EFFECT_TRANSFORM,
+	},
 }
 
 ## Hero kits keyed by kit id. A kit names, per form, the resource pool (`max` and
@@ -401,6 +642,52 @@ const KITS := {
 		{
 			AbilitySpec.FORM_HUMAN: {0: 30, 1: 31, 3: 32},
 			AbilitySpec.FORM_ANIMAL: {0: 33, 2: 34, 3: 35},
+		},
+	},
+	# --- Verdani (jungle venom-and-shadow), the opposing Volk ----------------
+	"snake":
+	{
+		# A striker: a precise mid-tier pool, between the Cheetah's lean and the
+		# Hyena's baseline, to feed the cheap Fang Strike and the heavy Coil.
+		"resource":
+		{
+			AbilitySpec.FORM_HUMAN: {"max": 90, "regen_ticks": 9},
+			AbilitySpec.FORM_ANIMAL: {"max": 90, "regen_ticks": 9},
+		},
+		"abilities":
+		{
+			AbilitySpec.FORM_HUMAN: {0: 40, 1: 41, 3: 42},
+			AbilitySpec.FORM_ANIMAL: {0: 43, 2: 44, 3: 45},
+		},
+	},
+	"spider":
+	{
+		# A trapper: the deepest pool on the slowest regen, to sustain the wide,
+		# cheap-per-cast webs over a long attrition.
+		"resource":
+		{
+			AbilitySpec.FORM_HUMAN: {"max": 110, "regen_ticks": 13},
+			AbilitySpec.FORM_ANIMAL: {"max": 110, "regen_ticks": 13},
+		},
+		"abilities":
+		{
+			AbilitySpec.FORM_HUMAN: {0: 50, 1: 51, 3: 52},
+			AbilitySpec.FORM_ANIMAL: {0: 53, 2: 54, 3: 55},
+		},
+	},
+	"chameleon":
+	{
+		# An ambusher: the leanest pool on the fastest regen, to land a burst and
+		# refill for the next one — the most boom-and-bust economy of either Volk.
+		"resource":
+		{
+			AbilitySpec.FORM_HUMAN: {"max": 70, "regen_ticks": 7},
+			AbilitySpec.FORM_ANIMAL: {"max": 70, "regen_ticks": 7},
+		},
+		"abilities":
+		{
+			AbilitySpec.FORM_HUMAN: {0: 60, 1: 61, 3: 62},
+			AbilitySpec.FORM_ANIMAL: {0: 63, 2: 64, 3: 65},
 		},
 	},
 }

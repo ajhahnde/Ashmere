@@ -72,13 +72,15 @@ const CREEP_HP_BAR_OFFSET := Vector2(-35.0, -55.0)
 const HP_BAR_BG := Color(0.0, 0.0, 0.0, 0.6)
 const HP_BAR_FG := Color(0.4, 0.85, 0.4)
 
-## The Solane roster each team fields in a LOCAL practice match, one hero per kit
-## (see AbilityData). The player drives one of them — picked with `--hero`, default
-## the first — and the rest are bot-driven allies and opponents, so all three
-## authored kits are reachable in-game. HOST/CLIENT still seat the one-per-team duel
-## (DUEL_KIT below): the wire identifies a hero by its team, so a networked squad
-## waits on the protocol step that gives each client a controlled-entity id.
+## The two Volk a LOCAL practice match fields, one hero per kit (see AbilityData): the
+## player's squad draws the Solane, the bot squad the opposing Verdani, so a single
+## match exercises both rosters and all four targeting modes. The player drives one
+## Solane hero — picked with `--hero`, default the first — and every other seat on both
+## teams is bot-driven. HOST/CLIENT still seat the one-per-team duel (DUEL_KIT below):
+## the wire identifies a hero by its team, so a networked squad waits on the protocol
+## step that gives each client a controlled-entity id.
 const SOLANE_ROSTER: Array[String] = ["lion", "cheetah", "hyena"]
+const VERDANI_ROSTER: Array[String] = ["snake", "spider", "chameleon"]
 
 ## The kit both heroes mirror in a HOST/CLIENT duel — the one-per-team walking
 ## skeleton the netcode is built around until the multi-hero wire step lands.
@@ -288,23 +290,23 @@ func _close_menu_and_enter() -> void:
 	_enter_match()
 
 
-## Practice: both teams field the full Solane squad, one hero per roster kit. The
-## player drives the seat picked by `--hero`; the other five are bot-driven, so all
-## three authored kits are on the field at once.
+## Practice: the player's team fields the full Solane squad, the bot team the opposing
+## Verdani squad, one hero per roster kit. The player drives the Solane seat picked by
+## `--hero`; the other five are bot-driven, so both rosters are on the field at once.
 func _start_local() -> void:
 	_sim = _new_world()
-	_seat_squad(HERO_TEAM, HERO_SPEED, _player_slot())
-	_seat_squad(BOT_TEAM, BOT_SPEED, -1)
+	_seat_squad(HERO_TEAM, HERO_SPEED, SOLANE_ROSTER, _player_slot())
+	_seat_squad(BOT_TEAM, BOT_SPEED, VERDANI_ROSTER, -1)
 
 
-## Seats one Solane hero per roster kit for `team`, each fanned across the base
-## fountain and equipped with its kit. The seat at `player_slot` becomes the
-## player's hero (`_hero_id`); every other seat is bot-driven (appended to
-## `_bot_ids`). A `player_slot` of -1 leaves the whole team bot-driven.
-func _seat_squad(team: int, speed: float, player_slot: int) -> void:
-	for i in SOLANE_ROSTER.size():
-		var id := _sim.add_hero(team, MapData.squad_spawn(team, i, SOLANE_ROSTER.size()), speed)
-		_sim.equip_kit(id, SOLANE_ROSTER[i])
+## Seats one hero per kit in `roster` for `team`, each fanned across the base fountain
+## and equipped with its kit. The seat at `player_slot` becomes the player's hero
+## (`_hero_id`); every other seat is bot-driven (appended to `_bot_ids`). A
+## `player_slot` of -1 leaves the whole team bot-driven.
+func _seat_squad(team: int, speed: float, roster: Array[String], player_slot: int) -> void:
+	for i in roster.size():
+		var id := _sim.add_hero(team, MapData.squad_spawn(team, i, roster.size()), speed)
+		_sim.equip_kit(id, roster[i])
 		if i == player_slot:
 			_hero_id = id
 		else:

@@ -34,11 +34,12 @@ lanes and an equatorial jungle to break each other's nexus.
 The first milestone is a **walking skeleton**: one player-controlled hero and
 one bot moving on the 3v3 arena under a server-authoritative, fixed-timestep
 simulation. With that authority model proven, networked play over a
-listen-server, the hero ability layer, and the first roster of heroes — the
-**Solane**, savanna big-cat shifters (lion, cheetah, hyena) — now run on top of
-it. A practice match fields the full Solane squad per team — the player drives
-one hero, bots fill the rest — so all three kits are on the field at once; the
-opposing Volk, multi-hero teams over the wire, and the art direction come next.
+listen-server, the hero ability layer, and two full rosters of heroes — the
+**Solane**, savanna big-cat shifters (lion, cheetah, hyena), and the opposing
+**Verdani**, jungle venom-and-shadow shifters (snake, spider, chameleon) — now
+run on top of it. A practice match fields the Solane squad against the Verdani —
+the player drives one Solane hero, bots fill the rest — so both rosters are on
+the field at once; multi-hero teams over the wire and the art direction come next.
 
 ## Architecture
 
@@ -86,9 +87,10 @@ godot --path .
 
 A connect screen opens: choose **Practice** for a single-machine match, **Host** to
 start a listen-server, or type an address and **Join** one. Practice fields the full
-Solane squad on each team — you drive one hero (the lion by default, or pass
-`--hero cheetah`/`--hero hyena` on the command line), bots drive the rest. A hosted
-or joined match is still a one-hero-per-team duel on the lion until multi-hero play
+Solane squad against the opposing Verdani squad — you drive one Solane hero (the lion
+by default, or pass `--hero cheetah`/`--hero hyena` on the command line), bots drive
+the rest. A hosted or joined match is still a one-hero-per-team duel on the lion until
+multi-hero play
 reaches the wire. Move the hero with **WASD** or the **arrow keys**; the bots close
 on the nearest enemy and cast their own kits — healing when hurt, otherwise firing
 the reachable ability of their form, and shifting form to keep a hit in reach
