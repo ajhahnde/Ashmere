@@ -26,6 +26,14 @@ protocol version.
 
 ### Changed
 
+- The heroes now wear placeholder 3D models — a distinct low-poly animal per kit (lion,
+  cheetah, hyena, snake, spider, chameleon) standing in for the species each shapeshifter
+  takes — in place of the capsule bodies. The models come from mixed sources at different
+  authored scales, so each is auto-scaled to a common on-field size, stood on the ground,
+  and washed in a translucent team colour, so squadmates read apart by species while teams
+  stay legible at a glance. Creeps and structures keep their primitives for now. Bundled
+  asset licenses are credited in [`CREDITS.md`](CREDITS.md). Presentation only — the
+  simulation and the netcode protocol are unchanged.
 - The match now renders in 2.5D: a pitched, close camera follows your hero across the
   field — heroes and creeps stand as shaded capsules and structures as boxes on a lit
   ground, replacing the flat top-down dots. HP and resource bars and the human/animal

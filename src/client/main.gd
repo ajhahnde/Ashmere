@@ -691,12 +691,7 @@ func _make_view(entity: SimEntity) -> Dictionary:
 	var root := Node3D.new()
 	add_child(root)
 	var view := {"root": root}
-	var body := MeshInstance3D.new()
-	body.mesh = _body_mesh(entity)
-	body.position = Vector3(0.0, _body_half_height(entity), 0.0)
-	body.material_override = _flat_material(_body_color(entity))
-	root.add_child(body)
-	view["body"] = body
+	view["body"] = _build_body(root, entity)
 	if entity.is_hero:
 		var ring := MeshInstance3D.new()
 		ring.mesh = _ring_mesh()
@@ -706,6 +701,23 @@ func _make_view(entity: SimEntity) -> Dictionary:
 		view["ring"] = ring
 	_attach_overlay(view, entity)
 	return view
+
+
+## Builds an entity's body under `root`: a size-normalised animal model for a hero whose
+## kit has one (handed off to HeroModelLibrary), or a primitive (capsule unit, box
+## structure) otherwise. Returned so the view can hold it, though the body is never
+## mutated again once built — team and form read off the tint and the ring, not the body.
+## A pure CLIENT whose snapshot carried no `kit_id` falls through to the capsule, so an
+## unmodelled hero still draws.
+func _build_body(root: Node3D, entity: SimEntity) -> Node3D:
+	if entity.is_hero and HeroModelLibrary.has_model(entity.kit_id):
+		return HeroModelLibrary.add_to(root, entity.kit_id, _team_color(entity.team))
+	var body := MeshInstance3D.new()
+	body.mesh = _body_mesh(entity)
+	body.position = Vector3(0.0, _body_half_height(entity), 0.0)
+	body.material_override = _flat_material(_body_color(entity))
+	root.add_child(body)
+	return body
 
 
 ## Hangs the floating UI above an entity: an HP bar for anything with health, plus a

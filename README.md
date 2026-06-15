@@ -78,6 +78,7 @@ delay adapts to the connection's measured jitter rather than being fixed.
 | `src/client` | The connect menu, local input sampling, and rendering. |
 | `test/unit`  | Headless tests of the simulation and the wire protocol. |
 | `scenes`     | Godot scenes.                                         |
+| `assets`     | Art assets — the placeholder hero models (see [`CREDITS.md`](CREDITS.md)). |
 
 ## Running
 
@@ -103,8 +104,9 @@ poke range and back off rather than melee — and all cast their own kits, heali
 hurt and otherwise firing the reachable ability of their form. Cast its abilities with
 **1–4**, aimed at the mouse cursor — the hero shifts between a human and an animal
 form (shown by the ring around it, white or amber), each form a different set of
-abilities drawing on its own resource (the bar under the health bar). Each hero wears a
-distinct shade of its team colour, so your three squadmates read apart at a glance. Abilities are
+abilities drawing on its own resource (the bar under the health bar). Each hero appears as
+its own animal — a placeholder low-poly model washed in its team colour — so your three
+squadmates read apart by species at a glance. Abilities are
 cast in a single-machine or hosted match; a joined client moves but does not yet
 cast.
 
@@ -155,7 +157,8 @@ Both run in continuous integration on every push and pull request.
 
 ## License
 
-Apache License 2.0 — see [`LICENSE`](LICENSE).
+Apache License 2.0 — see [`LICENSE`](LICENSE). Bundled third-party art assets carry
+their own licenses, credited in [`CREDITS.md`](CREDITS.md).
 
 ---
 
