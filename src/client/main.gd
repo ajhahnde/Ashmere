@@ -138,6 +138,10 @@ var _bot_id: int = 0
 ## picks the match-up. Falls back to the first hero of the default tribe if unset or
 ## unrecognised. Ignored by HOST/CLIENT, which seat the duel.
 var _player_hero: String = AbilityData.TRIBE[DEFAULT_TRIBE][0]
+## The bot skill level, from `--bot-difficulty` or the menu, applied to `_bot` when the
+## match begins. Defaults to "easy" so practice is winnable out of the box; "normal" and
+## "hard" sharpen the bots' reaction. Held as a name and resolved to a level at apply.
+var _bot_difficulty: String = "easy"
 ## LOCAL: every bot-driven hero this match — the player's two squadmates and the
 ## three opponents — each stepped from its own BotController decision.
 var _bot_ids: Array[int] = []
@@ -209,6 +213,10 @@ func _configure_from_cmdline() -> void:
 			if i + 1 < args.size() and not args[i + 1].begins_with("--"):
 				_player_hero = args[i + 1]
 				i += 1
+		elif arg == "--bot-difficulty":
+			if i + 1 < args.size() and not args[i + 1].begins_with("--"):
+				_set_bot_difficulty(args[i + 1])
+				i += 1
 		elif arg == "--netsim":
 			if i + 1 < args.size() and not args[i + 1].begins_with("--"):
 				_netsim_params = _parse_netsim(args[i + 1])
@@ -235,10 +243,23 @@ func _parse_netsim(value: String) -> Array:
 	]
 
 
+## Records the bot skill level from a `--bot-difficulty` value (or the menu), keeping it
+## only when it names a known level so a typo degrades to the current default with a
+## warning rather than starting an unintended difficulty.
+func _set_bot_difficulty(level_name: String) -> void:
+	if BotController.DIFFICULTY_NAMES.has(level_name):
+		_bot_difficulty = level_name
+	else:
+		push_warning("unknown --bot-difficulty %s; keeping %s (want easy|normal|hard)" % [
+			level_name, _bot_difficulty
+		])
+
+
 ## Dispatches to the selected mode and marks the match live, so the per-tick driver
 ## and entity draw begin. The single entry point for both the command-line path and a
 ## menu choice.
 func _enter_match() -> void:
+	_bot.difficulty = BotController.difficulty_from_name(_bot_difficulty)
 	match _mode:
 		Mode.HOST:
 			_start_host()
@@ -264,6 +285,7 @@ func _open_connect_menu() -> void:
 	var menu := ConnectMenu.new()
 	menu.default_address = DEFAULT_JOIN_ADDRESS
 	menu.default_hero = _player_hero
+	menu.default_difficulty = _bot_difficulty
 	menu.practice_requested.connect(_on_practice_requested)
 	menu.host_requested.connect(_on_host_requested)
 	menu.join_requested.connect(_on_join_requested)
@@ -272,12 +294,14 @@ func _open_connect_menu() -> void:
 	add_child(_menu_layer)
 
 
-## The menu's Practice choice carries the hero the player picked; it overrides any
-## `--hero` parsed from the command line, and (like `--hero`) its tribe fields the player's
-## team and the opposing tribe the bots, so the pick also chooses the match-up.
-func _on_practice_requested(hero: String) -> void:
+## The menu's Practice choice carries the hero the player picked and the bot difficulty;
+## both override any `--hero` / `--bot-difficulty` parsed from the command line. The hero's
+## tribe fields the player's team and the opposing tribe the bots, so the pick also chooses
+## the match-up.
+func _on_practice_requested(hero: String, difficulty: String) -> void:
 	_mode = Mode.LOCAL
 	_player_hero = hero
+	_set_bot_difficulty(difficulty)
 	_close_menu_and_enter()
 
 

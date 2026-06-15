@@ -16,10 +16,11 @@ signal host_requested
 ## The player chose to join a server at `address` (already resolved to the default
 ## when the field was left blank).
 signal join_requested(address: String)
-## The player chose a single-machine practice match driving `hero` (a kit id). That
-## hero's tribe fields the player's team and the opposing tribe the bots, so the pick
-## also chooses the match-up — the same role `--hero` fills on the command line.
-signal practice_requested(hero: String)
+## The player chose a single-machine practice match driving `hero` (a kit id) against
+## bots of `difficulty` (a level name). The hero's tribe fields the player's team and the
+## opposing tribe the bots, so the pick also chooses the match-up — the same roles
+## `--hero` and `--bot-difficulty` fill on the command line.
+signal practice_requested(hero: String, difficulty: String)
 
 ## Menu styling. An opaque backdrop covers the whole viewport so the debug map and its
 ## jungle camps — drawn behind the menu in world space — do not bleed through the otherwise
@@ -36,6 +37,11 @@ const TITLE_FONT_SIZE := 72
 const BUTTON_MIN_SIZE := Vector2(560, 76)
 const ADDRESS_MIN_WIDTH := 380.0
 
+## The bot difficulty choices, as `[label, level name]` pairs — the label shown in the
+## picker, the level name carried as item metadata and emitted on Practice (the same
+## names `--bot-difficulty` accepts). Self-contained so the menu stays pure presentation.
+const DIFFICULTY_OPTIONS := [["Easy", "easy"], ["Normal", "normal"], ["Hard", "hard"]]
+
 ## The address used when the player leaves the field blank. The driver injects its
 ## own default so the menu and the `--join` flag resolve to one value.
 var default_address := "127.0.0.1"
@@ -45,11 +51,19 @@ var default_address := "127.0.0.1"
 ## command line. Empty selects the first hero in the list.
 var default_hero := ""
 
+## The bot difficulty the picker starts on (a level name). The driver injects its own
+## default — any `--bot-difficulty` parsed, else "easy" — so the menu reflects the command
+## line. An unknown name leaves the picker on its first option.
+var default_difficulty := "easy"
+
 var _address_field: LineEdit
 ## Picks the hero the player drives in a practice match. Populated from
 ## `AbilityData.TRIBE` so the roster cannot drift from the simulation's; each item
 ## carries its kit id as metadata.
 var _hero_picker: OptionButton
+## Picks the bot skill level for a practice match; each item carries its level name as
+## metadata, emitted on the Practice choice.
+var _difficulty_picker: OptionButton
 
 
 func _ready() -> void:
@@ -98,6 +112,14 @@ func _ready() -> void:
 	_hero_picker = OptionButton.new()
 	_populate_heroes()
 	box.add_child(_hero_picker)
+
+	var difficulty_label := Label.new()
+	difficulty_label.text = "Bot difficulty"
+	box.add_child(difficulty_label)
+
+	_difficulty_picker = OptionButton.new()
+	_populate_difficulties()
+	box.add_child(_difficulty_picker)
 
 	var practice_button := Button.new()
 	practice_button.text = "Practice (single machine)"
@@ -161,8 +183,29 @@ func _selected_hero() -> String:
 	return _hero_picker.get_item_metadata(_hero_picker.selected)
 
 
+## Fills the difficulty picker from `DIFFICULTY_OPTIONS` — one item per level, carrying
+## its level name as metadata — and selects `default_difficulty` (or the first option
+## when the injected name is unknown).
+func _populate_difficulties() -> void:
+	for option in DIFFICULTY_OPTIONS:
+		_difficulty_picker.add_item(option[0])
+		_difficulty_picker.set_item_metadata(_difficulty_picker.item_count - 1, option[1])
+	for i in _difficulty_picker.item_count:
+		if _difficulty_picker.get_item_metadata(i) == default_difficulty:
+			_difficulty_picker.select(i)
+			return
+
+
+## The level name of the selected difficulty, falling back to `default_difficulty` if
+## nothing is selected (never the case while options are defined).
+func _selected_difficulty() -> String:
+	if _difficulty_picker.selected < 0:
+		return default_difficulty
+	return _difficulty_picker.get_item_metadata(_difficulty_picker.selected)
+
+
 func _on_practice_pressed() -> void:
-	practice_requested.emit(_selected_hero())
+	practice_requested.emit(_selected_hero(), _selected_difficulty())
 
 
 func _on_host_pressed() -> void:

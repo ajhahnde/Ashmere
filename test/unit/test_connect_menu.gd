@@ -24,12 +24,22 @@ func _select_hero(menu: ConnectMenu, hero: String) -> void:
 	fail_test("hero %s is not in the picker" % hero)
 
 
+# Selects the difficulty item carrying `level` as metadata; fails if none matches.
+func _select_difficulty(menu: ConnectMenu, level: String) -> void:
+	for i in menu._difficulty_picker.item_count:
+		if menu._difficulty_picker.get_item_metadata(i) == level:
+			menu._difficulty_picker.select(i)
+			return
+	fail_test("difficulty %s is not in the picker" % level)
+
+
 func test_practice_choice_requests_a_local_match() -> void:
 	var menu := _menu()
 	watch_signals(menu)
 	menu._on_practice_pressed()
-	# With no injected default the picker rests on the first roster hero, the Solane lead.
-	assert_signal_emitted_with_parameters(menu, "practice_requested", ["lion"])
+	# With no injected defaults the pickers rest on the first roster hero (the Solane lead)
+	# and the first difficulty (Easy).
+	assert_signal_emitted_with_parameters(menu, "practice_requested", ["lion", "easy"])
 
 
 func test_practice_carries_the_picked_hero() -> void:
@@ -37,7 +47,24 @@ func test_practice_carries_the_picked_hero() -> void:
 	_select_hero(menu, "chameleon")
 	watch_signals(menu)
 	menu._on_practice_pressed()
-	assert_signal_emitted_with_parameters(menu, "practice_requested", ["chameleon"])
+	assert_signal_emitted_with_parameters(menu, "practice_requested", ["chameleon", "easy"])
+
+
+func test_practice_carries_the_picked_difficulty() -> void:
+	var menu := _menu()
+	_select_difficulty(menu, "hard")
+	watch_signals(menu)
+	menu._on_practice_pressed()
+	assert_signal_emitted_with_parameters(menu, "practice_requested", ["lion", "hard"])
+
+
+func test_injected_default_preselects_its_difficulty() -> void:
+	# default_difficulty must be set before `_ready` populates, so build it outside `_menu()`.
+	var menu := ConnectMenu.new()
+	menu.default_difficulty = "normal"
+	add_child_autoqfree(menu)
+	var selected: String = menu._difficulty_picker.get_item_metadata(menu._difficulty_picker.selected)
+	assert_eq(selected, "normal", "the driver's default difficulty is pre-selected")
 
 
 func test_picker_offers_every_tribe_hero() -> void:

@@ -15,6 +15,13 @@ extends RefCounted
 ## and feeds the same simulation core a human would, gating every cast (a transform
 ## included) on the very `AbilityExecutor.can_cast` the player's casts pass through.
 
+## Bot skill levels. A higher level reacts faster: HARD opens a damaging cast the
+## instant one is ready (the full-strength bot the unit tests pin), while NORMAL and
+## EASY only open one on a slower beat, so the bot's poke uptime drops and a human can
+## out-trade it. Survival and positioning (heal, transform, kite, advance) are never
+## throttled — the handicap slows the bot's hands, it does not dull its judgement.
+enum Difficulty { EASY, NORMAL, HARD }
+
 ## Stop advancing once within this many world units of the target.
 const STOP_RANGE := 60.0
 
@@ -26,6 +33,28 @@ const SLOT_COUNT := 4
 ## matter in a trade, but not so eager the bot tops off a scratch every tick. The
 ## same threshold tells the bot when to favour the human form for its heal.
 const HEAL_HP_FRACTION := 0.6
+
+## Ticks between the beats on which a bot of each difficulty may open a damaging cast
+## (at 60 ticks/s). HARD's period of 1 makes every tick a beat — no handicap; the
+## softer levels add a reaction delay of up to this many ticks. Eyeball-tunable.
+const CAST_PERIOD := {
+	Difficulty.EASY: 45,
+	Difficulty.NORMAL: 18,
+	Difficulty.HARD: 1,
+}
+
+## The difficulty names the `--bot-difficulty` flag and the connect menu pass, mapped
+## to a level. The single place the spelling-to-level mapping lives.
+const DIFFICULTY_NAMES := {
+	"easy": Difficulty.EASY,
+	"normal": Difficulty.NORMAL,
+	"hard": Difficulty.HARD,
+}
+
+## This bot's skill level. Defaults to HARD so a bare BotController is full-strength
+## (the behaviour the unit tests pin); the practice match dials it down to its own
+## setting (EASY by default, so practice is winnable).
+var difficulty: int = Difficulty.HARD
 
 
 func decide(state: SimState, bot_id: int) -> InputCommand:
@@ -43,8 +72,14 @@ func decide(state: SimState, bot_id: int) -> InputCommand:
 		if offset.length() > STOP_RANGE:
 			command.move_dir = offset.normalized()
 	if bot.is_hero:
-		_choose_cast(command, bot, target)
+		_choose_cast(command, bot, target, state.tick)
 	return command
+
+
+## Maps a difficulty name — the `--bot-difficulty` value and the menu's metadata — to a
+## level, falling back to EASY (the winnable practice default) for an unknown name.
+static func difficulty_from_name(level_name: String) -> int:
+	return DIFFICULTY_NAMES.get(level_name, Difficulty.EASY)
 
 
 ## Layers an ability cast onto the bot's command when one is worth casting this
@@ -54,7 +89,7 @@ func decide(state: SimState, bot_id: int) -> InputCommand:
 ## fires the first damaging ability of its active form that lands on `target`. Reads
 ## the same state the player's input sampler does and gates on the same cast rules,
 ## so a bot's casts stay pure and replayable.
-func _choose_cast(command: InputCommand, bot: SimEntity, target: SimEntity) -> void:
+func _choose_cast(command: InputCommand, bot: SimEntity, target: SimEntity, tick: int) -> void:
 	if _preferred_form(bot, target) != bot.form:
 		var transform_slot := _castable_slot(bot, bot.form, AbilitySpec.EFFECT_TRANSFORM, target)
 		if transform_slot >= 0:
@@ -65,11 +100,27 @@ func _choose_cast(command: InputCommand, bot: SimEntity, target: SimEntity) -> v
 		if heal_slot >= 0:
 			command.ability_slot = heal_slot
 			return
+	if not _may_open_cast(bot, tick):
+		return
 	var damage_slot := _castable_slot(bot, bot.form, AbilitySpec.EFFECT_DAMAGE, target)
 	if damage_slot >= 0:
 		command.ability_slot = damage_slot
 		command.target_point = target.position
 		command.target_id = target.id
+
+
+## Whether `tick` is one of this bot's cast beats — the reaction handicap that sets the
+## skill levels apart. HARD's period of 1 makes every tick a beat, so the bot opens a
+## damaging cast the instant one is ready (the full-strength behaviour the tests pin);
+## the softer levels open one only once per `CAST_PERIOD[difficulty]` ticks, so the
+## bot's poke uptime drops and a human can out-trade it. The beat is phase-shifted by
+## the bot's id so a squad's bots do not all fire on the same tick. Gates only the
+## damaging cast — `_choose_cast` returns before this for a heal or a transform — so a
+## hurt bot still heals and a cornered one still shifts every tick: the handicap slows
+## the hands without dulling survival or positioning. A pure function of (tick, id), so
+## a bot match still replays identically.
+func _may_open_cast(bot: SimEntity, tick: int) -> bool:
+	return (tick + bot.id) % CAST_PERIOD[difficulty] == 0
 
 
 ## The form the bot would rather fight this target in. Survival comes first: a hurt
