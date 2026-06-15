@@ -96,13 +96,13 @@ snake puts you on the Verdani against the Solane, and the default lion keeps the
 against the Verdani. The command line's `--hero` makes the same choice for a launch that
 skips the menu. Bots drive the other five seats. A hosted or joined match is still a
 one-hero-per-team duel on the lion until multi-hero play
-reaches the wire. Move the hero with **WASD** or the **arrow keys**; the bots fight to their kit's
+reaches the wire. Move the hero by **right-clicking** where it should go — click-to-move, like a MOBA — and the bots fight to their kit's
 stance — brawlers close on the nearest enemy and shift into the form that keeps a hit
 in reach (into the animal kit when an enemy slips inside the human poke, back to the
 human form to poke or heal), while the skirmishers (Cheetah, Chameleon) hold their
 poke range and back off rather than melee — and all cast their own kits, healing when
 hurt and otherwise firing the reachable ability of their form. Cast its abilities with
-**1–4**, aimed at the mouse cursor — the hero shifts between a human and an animal
+**Q W E R**, aimed at the mouse cursor — the hero shifts between a human and an animal
 form (shown by the ring around it, white or amber), each form a different set of
 abilities drawing on its own resource (the bar under the health bar). Each hero appears as
 its own animal — a placeholder low-poly model washed in its team colour — so your three

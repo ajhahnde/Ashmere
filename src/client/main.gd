@@ -12,29 +12,21 @@ extends Node3D
 ##            local input, hands team 1 to a remote client when one connects (a bot
 ##            until then), and broadcasts a snapshot every tick.
 ##   CLIENT — owns no authority: it samples local input, sends it up, and draws the
-##            server's snapshots — but predicts its own hero locally from that input
-##            so the hero responds without a round-trip, reconciling against every
-##            snapshot. Remote entities are rendered a short delay in the past,
-##            interpolated between buffered snapshots, so they move smoothly through
-##            network jitter and dropped packets.
+##            server's snapshots — but predicts its own hero locally from that input so it
+##            responds without a round-trip, reconciling against every snapshot. Remote
+##            entities render a short delay in the past, interpolated between buffered
+##            snapshots, so they move smoothly through jitter and dropped packets. A
+##            `--netsim <latency>,<jitter>,<loss>` shapes the incoming stream to debug this.
 ##
-## A CLIENT may add `--netsim <latency>,<jitter>,<loss>` to shape its incoming
-## snapshot stream as if it had crossed a worse link — a debug aid for watching the
-## adaptive interpolation delay grow and the interpolation cover dropped snapshots,
-## since the local machine and LAN deliver almost perfectly.
+## Authority stays in SimCore; transport in NetSession; wire shaping in NetProtocol;
+## remote-entity smoothing in SnapshotInterpolator. This node samples input, routes it,
+## predicts the client's own hero, interpolates the rest, and presents the result.
 ##
-## All authority stays in SimCore; the transport lives in NetSession; the wire
-## shaping lives in NetProtocol; remote-entity smoothing lives in
-## SnapshotInterpolator. This node samples input, routes it, predicts the client's
-## own hero, interpolates the rest, and presents the resulting state.
-##
-## Presentation is 2.5D: the simulation stays a flat 2D world (`Vector2`), and the
-## client renders it under a pitched `Camera3D` that follows the player's hero — a
-## sim point `Vector2(x, y)` maps to `Vector3(x, 0, y)` on the ground. Every entity
-## owns a pooled 3D view (a primitive mesh plus billboarded HP/resource bars and a
-## status label); `_sync_world` reconciles the pool against the live state each
-## tick. Authority and the wire are untouched by any of this — it is a pure
-## presentation layer over the same 2D state every mode produces.
+## Presentation is 2.5D: the sim stays a flat 2D world (`Vector2`) and the client renders it
+## under a pitched `Camera3D` following the hero — a sim point `Vector2(x, y)` maps to
+## `Vector3(x, 0, y)` on the ground. Every entity owns a pooled 3D view (mesh + billboarded
+## bars + status label) reconciled against the live state each tick. The wire is untouched —
+## a pure presentation layer over the same 2D state every mode produces.
 
 enum Mode { LOCAL, HOST, CLIENT }
 
@@ -50,25 +42,23 @@ const DEFAULT_JOIN_ADDRESS := "127.0.0.1"
 const NETSIM_SEED := 1
 
 # --- Presentation (2.5D) ----------------------------------------------------
-# The sim is a flat 2D world; the client renders it under a pitched Camera3D, a sim
-# point Vector2(x, y) sitting at Vector3(x, 0, y) on the ground. Sizes are world
-# units, kept 1:1 with the sim so the mouse-ray aim needs no rescaling.
+# The sim is a flat 2D world rendered under a pitched Camera3D, Vector2(x, y) at
+# Vector3(x, 0, y). Sizes are world units, 1:1 with the sim so the mouse-ray needs no rescale.
 
 const HERO_COLOR := Color(0.36, 0.66, 1.0)
 const BOT_COLOR := Color(1.0, 0.42, 0.38)
 
-## Hero body: a standing capsule of this radius and height. CREEP_* is the smaller
-## body a wave member gets so the wave reads as a cluster apart from the heroes.
+## Hero body: a standing capsule of this radius and height. CREEP_* is the smaller body a
+## wave member gets, so a wave reads as a cluster apart from the heroes.
 const ENTITY_RADIUS := 44.0
 const HERO_BODY_HEIGHT := 150.0
 const CREEP_RADIUS := 22.0
 const CREEP_BODY_HEIGHT := 80.0
 const CREEP_DARKEN := 0.3
 
-## Per-hero tint: a team's heroes share its base colour but each is shaded by its roster
-## seat (0..2), so three squadmates read apart while the team hue stays obvious. Indexed
-## by `AbilityData.roster_index`; a positive value lightens, a negative one darkens. A hero
-## with no roster seat (an unknown kit) falls back to the flat team colour.
+## Per-hero tint: a team's heroes share its base colour, each shaded by its roster seat (0..2)
+## so squadmates read apart while the team hue stays. Indexed by `AbilityData.roster_index`;
+## positive lightens, negative darkens; no seat (unknown kit) keeps the flat team colour.
 const HERO_SHADES: Array[float] = [0.0, 0.28, -0.22]
 
 ## Structures stand as boxes on the ground: a square footprint (tower/nexus) extruded
@@ -83,18 +73,15 @@ const AMBIENT_COLOR := Color(0.52, 0.56, 0.64)
 const AMBIENT_ENERGY := 0.5
 const LIGHT_ENERGY := 1.1
 
-## Camera follow-rig: a close, LoL-style view trailing the player's hero. Height and
-## the backward offset set both the look angle (atan(height / back) ~= 67°) and the
-## zoom — the camera sits ~950 units off the hero, so it reads about a tenth of the
-## frame tall. A steep pitch keeps the field filling the frame above the hero; both
-## are eyeball tuning knobs to dial in the windowed playtest.
+## Camera follow-rig: a close, LoL-style view trailing the hero. Height and the backward
+## offset set the look angle (atan(height / back) ~= 67°) and the zoom (~950 units off the
+## hero); eyeball tuning knobs for the windowed playtest.
 const CAM_HEIGHT := 880.0
 const CAM_BACK := 370.0
 
-## Billboarded HP/resource bars + status label floating above a unit (world units). A
-## hero's HP bar floats HERO_BAR_GAP above its own model's top (measured per kit, since
-## the animals vary in height) with the resource bar a step below and the status label a
-## step above; creeps and structures use their own fixed heights below.
+## Billboarded HP/resource bars + status label floating above a unit (world units). A hero's
+## HP bar floats HERO_BAR_GAP above its own model's measured top (animals vary in height),
+## the resource bar a step below and the status label a step above; creeps/structures fixed.
 const BAR_WIDTH := 170.0
 const BAR_HEIGHT := 24.0
 const HERO_BAR_GAP := 70.0
@@ -106,23 +93,20 @@ const HP_BAR_FG := Color(0.4, 0.85, 0.4)
 const RES_BAR_FG := Color(0.35, 0.6, 0.95)
 const STATUS_FONT_SIZE := 120
 
-## The tribe the player's team falls back to in a LOCAL practice match when `--hero`
-## names no known hero. The rosters themselves live in `AbilityData.TRIBE` — the single
-## source of which heroes form which tribe — and `_start_local` seats the player's chosen
-## tribe against the opposing one, so the match exercises both rosters and all four
-## targeting modes. HOST/CLIENT still seat the one-per-team duel (DUEL_KIT below): the
-## wire identifies a hero by its team, so a networked squad waits on the protocol step
-## that gives each client a controlled-entity id.
+## The tribe the player's team falls back to in a LOCAL practice match when `--hero` names no
+## known hero. Rosters live in `AbilityData.TRIBE`; `_start_local` seats the chosen tribe
+## against the opposing one. HOST/CLIENT still seat the one-per-team duel (DUEL_KIT below)
+## until the protocol step that gives each client a controlled-entity id lands.
 const DEFAULT_TRIBE := "solane"
 
 ## The kit both heroes mirror in a HOST/CLIENT duel — the one-per-team walking
 ## skeleton the netcode is built around until the multi-hero wire step lands.
 const DUEL_KIT := "lion"
 
-## Ability bar keys, one per slot (0..3). Movement owns WASD/arrows, so the four
-## abilities sit on the number row rather than QWER. A held key recasts the slot as
-## soon as its cooldown and resource allow (quick-cast).
-const ABILITY_KEYS: Array[Key] = [KEY_1, KEY_2, KEY_3, KEY_4]
+## Ability bar keys, one per slot (0..3) — QWER, the MOBA-standard bind. Movement is
+## click-to-move (right mouse), so the letter row is free for the kit. A held key recasts
+## the slot as soon as its cooldown and resource allow (quick-cast).
+const ABILITY_KEYS: Array[Key] = [KEY_Q, KEY_W, KEY_E, KEY_R]
 
 ## Form ring laid flat on the ground under a hero, reading its active shapeshifter
 ## form — white while human, amber while shifted to the animal form.
@@ -156,6 +140,12 @@ var _sim: SimCore = null
 var _bot := BotController.new()
 var _hero_id: int = 0
 var _bot_id: int = 0
+
+## Click-to-move (LoL-style): the world point the player last right-clicked, the destination
+## the hero walks to; `_has_move_target` gates it (false = stand still). Resolved to a per-tick
+## `move_dir` on the client before it reaches the sim or the wire, so neither is changed.
+var _move_target: Vector2 = Vector2.ZERO
+var _has_move_target: bool = false
 
 ## LOCAL: the hero the player drives, from `--hero` — any hero of either tribe. Its
 ## tribe fills the player's team and the opposing tribe the bot team, so the choice also
@@ -473,10 +463,9 @@ func _tick_host() -> void:
 	_net.broadcast_snapshot(_sim.state, ack)
 
 
-## Samples local input, sends it up stamped with a sequence number, buffers it as
-## pending, feeds the latest snapshot to the interpolator, then rebuilds the world
-## to draw. Prediction makes the local hero respond immediately instead of waiting a
-## round-trip; interpolation makes the remote entities move smoothly despite jitter.
+## Samples local input, sends it up stamped with a sequence number, buffers it as pending,
+## feeds the latest snapshot to the interpolator, then rebuilds the world to draw. Prediction
+## makes the local hero respond without a round-trip; interpolation smooths the rest.
 func _tick_client() -> void:
 	if _joined:
 		_input_seq += 1
@@ -487,13 +476,11 @@ func _tick_client() -> void:
 	_client_state = _render_state()
 
 
-## Feeds freshly arrived authoritative snapshots into the interpolation buffer. With
-## a `--netsim` conditioner the session releases the snapshots whose simulated delay
-## has elapsed, each stamped with its release time so the injected latency and jitter
-## read as real arrival timing; otherwise the freshest snapshot is buffered as it
-## stands. Either way the interpolator ignores ticks it already holds, so each
-## distinct snapshot is buffered once. This decodes its own copy; prediction decodes
-## a separate one, so neither mutates the buffer.
+## Feeds freshly arrived authoritative snapshots into the interpolation buffer. With a
+## `--netsim` conditioner the session releases snapshots whose simulated delay has elapsed,
+## stamped with their release time so injected latency/jitter read as real arrival timing;
+## otherwise the freshest is buffered as it stands. The interpolator ignores ticks it already
+## holds, so each distinct snapshot is buffered once, from its own decoded copy.
 func _buffer_snapshots() -> void:
 	var now := float(Time.get_ticks_msec())
 	if _net.is_conditioned():
@@ -505,11 +492,10 @@ func _buffer_snapshots() -> void:
 			_interp.push(state, now)
 
 
-## The world to draw: remote entities interpolated in the past (smoothing jitter and
-## absorbing dropped snapshots), with our own hero overlaid at its predicted,
-## present-time position. The interpolation delay adapts to the live connection's
-## jitter. Authority is never forked — both halves derive only from the server's
-## snapshots. Null until the first snapshot arrives.
+## The world to draw: remote entities interpolated in the past (smoothing jitter, absorbing
+## dropped snapshots, delay adapting to the live link), with our own hero overlaid at its
+## predicted present-time position. Both halves derive only from the server's snapshots —
+## authority is never forked. Null until the first snapshot arrives.
 func _render_state() -> SimState:
 	var state := _interp.sample(Time.get_ticks_msec() - _interp.target_delay_ms())
 	if state == null:
@@ -518,9 +504,8 @@ func _render_state() -> SimState:
 	return state
 
 
-## Replaces our hero's interpolated (past) position in `state` with its predicted
-## present-time position, so only our hero escapes the interpolation delay while
-## every other entity stays smoothed.
+## Replaces our hero's interpolated (past) position in `state` with its predicted present-time
+## position, so only our hero escapes the interpolation delay while everything else stays smoothed.
 func _overlay_predicted_hero(state: SimState) -> void:
 	var predicted := _predicted_hero()
 	if predicted == null:
@@ -530,11 +515,10 @@ func _overlay_predicted_hero(state: SimState) -> void:
 		hero.position = predicted.position
 
 
-## Our hero reconciled against the latest snapshot: take its authoritative position,
-## drop the inputs the server has already applied, and replay the rest with the same
-## movement math the server runs. Authority is never forked — the snapshot rolls our
-## hero back to the server's truth before the replay, so a misprediction self-corrects
-## within a tick. Returns null before the first snapshot or if our hero is not in it.
+## Our hero reconciled against the latest snapshot: take its authoritative position, drop the
+## inputs the server has already applied, and replay the rest with the server's movement math.
+## The snapshot rolls our hero back to the server's truth before the replay, so a misprediction
+## self-corrects within a tick. Null before the first snapshot or if our hero is not in it.
 func _predicted_hero() -> SimEntity:
 	var state := _net.latest_state()
 	if state == null:
@@ -550,8 +534,7 @@ func _predicted_hero() -> SimEntity:
 	return hero
 
 
-## Our hero in `state`: the one mobile, non-creep unit on our team. The walking
-## skeleton seats exactly one hero per team, so the first match is ours.
+## Our hero in `state`: the one mobile, non-creep unit on our team (one hero per team today).
 func _local_hero(state: SimState) -> SimEntity:
 	for id in state.entities:
 		var entity: SimEntity = state.entities[id]
@@ -931,28 +914,56 @@ func _hero_color(entity: SimEntity) -> Color:
 	return base.lightened(shade) if shade >= 0.0 else base.darkened(-shade)
 
 
+## Samples this tick's intent: a held right mouse button (re)sets the move destination to
+## the cursor point (click-to-move, hold-drag to steer); `_move_command_dir` turns it into
+## the tick's `move_dir` and the cast is layered on. The sim and wire still see an ordinary
+## per-tick direction — sourced from a click, not WASD.
 func _sample_player_input() -> InputCommand:
 	var command := InputCommand.new()
-	var dir := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP):
-		dir.y -= 1.0
-	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN):
-		dir.y += 1.0
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
-		dir.x -= 1.0
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
-		dir.x += 1.0
-	command.move_dir = dir
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		_move_target = _mouse_world_point()
+		_has_move_target = true
+	command.move_dir = _move_command_dir()
 	_sample_ability(command)
 	return command
 
 
-## Layers ability-cast intent onto a movement command. Only with a local
-## authoritative simulation (LOCAL/HOST): a pure CLIENT samples no abilities, since
-## the wire carries movement alone and networked casting is a later, protocol-
-## versioned step. The pressed slot keys the cast; the cursor is the aim point a
-## skillshot or ground ability uses, and the enemy nearest the cursor is the lock a
-## unit-targeted ability uses — the simulation reads whichever the cast ability needs.
+## Turns the standing move target into this tick's `move_dir` (click-to-move): a unit vector
+## toward it while far; once within a single tick's reach, a sub-unit vector that lands the
+## hero exactly on it (apply_movement scales a move_dir under length 1 down, so it stops on
+## the point instead of overshooting), clearing the target. No target or no hero holds still.
+func _move_command_dir() -> Vector2:
+	if not _has_move_target:
+		return Vector2.ZERO
+	var hero := _player_hero_entity()
+	if hero == null:
+		return Vector2.ZERO
+	var to_target := _move_target - hero.position
+	var step := hero.current_move_speed() * SimCore.TICK_DELTA
+	if step <= 0.0 or to_target.length() <= step:
+		_has_move_target = false
+		return to_target / step if step > 0.0 else Vector2.ZERO
+	return to_target.normalized()
+
+
+## The player's own hero — what the move target is measured from: the live sim entity where
+## this client owns authority (LOCAL/HOST), or our team's hero in the latest snapshot on a
+## pure CLIENT (the server still moves authoritatively from the direction we send). Null
+## before one exists.
+func _player_hero_entity() -> SimEntity:
+	if _mode == Mode.CLIENT:
+		var state := _net.latest_state() if _net != null else null
+		return _local_hero(state) if state != null else null
+	if _sim != null:
+		return _sim.state.get_entity(_hero_id)
+	return null
+
+
+## Layers ability-cast intent onto a movement command. Only with a local authoritative sim
+## (LOCAL/HOST): a pure CLIENT samples no abilities, as the wire carries movement alone and
+## networked casting is a later, protocol-versioned step. The pressed slot keys the cast; the
+## cursor is the aim point, and the enemy nearest it is the unit-target lock — the sim reads
+## whichever the cast ability needs.
 func _sample_ability(command: InputCommand) -> void:
 	if _sim == null:
 		return
@@ -965,10 +976,10 @@ func _sample_ability(command: InputCommand) -> void:
 	command.target_id = AbilityExecutor.pick_unit_target(_sim.state, HERO_TEAM, aim)
 
 
-## The point on the 2D field under the mouse: a ray cast from the camera through the
-## cursor, intersected with the ground plane (y = 0), returned in sim space. The aim a
-## ground or skillshot cast lands on, and the cursor a unit-target cast locks nearest.
-## Replaces the old 2D `get_global_mouse_position`, the world cursor under a Camera2D.
+## The point on the 2D field under the mouse: a ray from the camera through the cursor,
+## intersected with the ground plane (y = 0), returned in sim space. The aim a ground or
+## skillshot cast lands on, the cursor a unit-target cast locks nearest, and the click-to-move
+## destination.
 func _mouse_world_point() -> Vector2:
 	if _camera == null:
 		return Vector2.ZERO

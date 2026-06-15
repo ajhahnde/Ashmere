@@ -26,6 +26,12 @@ protocol version.
 
 ### Changed
 
+- Controls now follow the MOBA standard: move the hero by **right-clicking** the ground
+  (click-to-move, hold and drag to keep steering) and cast abilities with **Q · W · E · R**,
+  in place of driving with WASD and casting on the number row. The click destination is
+  resolved to a movement direction on the client before it reaches the simulation, so the
+  authoritative per-tick movement model and the netcode protocol are unchanged — this is an
+  input change only.
 - The hero models now turn to face where they move instead of sliding sideways, and the
   rigged one (the spider) loops a walk cycle while it moves and an idle one while it stands
   — the others, which ship no animation, just turn. Presentation only.
