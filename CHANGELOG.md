@@ -68,6 +68,10 @@ protocol version.
 
 ### Added
 
+- Press **S** to stop the hero where it stands, clearing the current move or attack order (the
+  MOBA-standard hold-position): tap it to cancel a path, hold it to stay planted while a fresh
+  right-click is held. Client-side input only; the simulation and the netcode protocol are
+  unchanged.
 - Right-clicking an enemy now attacks it: the hero closes to its attack range and the combat
   step strikes it (LoL-style attack-on-click), while right-clicking open ground still just
   walks there — one button both moves and engages. Client-side input only; the simulation and

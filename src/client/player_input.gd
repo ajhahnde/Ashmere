@@ -12,6 +12,11 @@ extends RefCounted
 ## slot's cooldown and resource allow (quick-cast).
 const ABILITY_KEYS: Array[Key] = [KEY_Q, KEY_W, KEY_E, KEY_R]
 
+## Stop key — halts the hero where it stands, clearing the standing move/attack order (the
+## MOBA-standard "S" hold-position). Tapped, it cancels the current path and plants the hero;
+## held, it keeps a fresh right-click from carrying, so the hero stays put until released.
+const STOP_KEY := KEY_S
+
 ## How close (world units) a right-click must land to an enemy's body to read as "attack this
 ## one" rather than "walk here" — its footprint plus a little slop.
 const ENEMY_PICK_RADIUS := 90.0
@@ -39,6 +44,8 @@ func sample(state: SimState, hero: SimEntity, team: int, cast_abilities: bool) -
 	var command := InputCommand.new()
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		_issue_order(state, team, _mouse_world_point())
+	if Input.is_physical_key_pressed(STOP_KEY):
+		_halt()
 	command.move_dir = _move_dir(hero, state)
 	if cast_abilities:
 		_sample_ability(command, state, team)
@@ -57,6 +64,14 @@ func _issue_order(state: SimState, team: int, point: Vector2) -> void:
 		attack_target_id = 0
 		move_target = point
 		has_move_target = true
+
+
+## Cancels the standing order so the hero plants where it stands — the move target and the
+## attack target both cleared, so `_move_dir` returns zero until the next click. Bound to
+## STOP_KEY (the MOBA "S").
+func _halt() -> void:
+	has_move_target = false
+	attack_target_id = 0
 
 
 ## This tick's movement direction: closing on the attack target when one is set, else the
