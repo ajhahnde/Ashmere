@@ -1,4 +1,4 @@
-extends Node2D
+extends Node3D
 ## Presentation + driver for the v0.1 match. It runs in one of three modes. A
 ## windowed launch with no mode flag opens a connect menu to pick one; the command
 ## line selects one directly (`-- --host`, `-- --join [address]`, `-- --local`); and
@@ -26,8 +26,15 @@ extends Node2D
 ## All authority stays in SimCore; the transport lives in NetSession; the wire
 ## shaping lives in NetProtocol; remote-entity smoothing lives in
 ## SnapshotInterpolator. This node samples input, routes it, predicts the client's
-## own hero, interpolates the rest, and draws the resulting state — the same `_draw`
-## serves every mode.
+## own hero, interpolates the rest, and presents the resulting state.
+##
+## Presentation is 2.5D: the simulation stays a flat 2D world (`Vector2`), and the
+## client renders it under a pitched `Camera3D` that follows the player's hero — a
+## sim point `Vector2(x, y)` maps to `Vector3(x, 0, y)` on the ground. Every entity
+## owns a pooled 3D view (a primitive mesh plus billboarded HP/resource bars and a
+## status label); `_sync_world` reconciles the pool against the live state each
+## tick. Authority and the wire are untouched by any of this — it is a pure
+## presentation layer over the same 2D state every mode produces.
 
 enum Mode { LOCAL, HOST, CLIENT }
 
@@ -42,9 +49,21 @@ const DEFAULT_JOIN_ADDRESS := "127.0.0.1"
 ## the same drop and jitter pattern run to run.
 const NETSIM_SEED := 1
 
+# --- Presentation (2.5D) ----------------------------------------------------
+# The sim is a flat 2D world; the client renders it under a pitched Camera3D, a sim
+# point Vector2(x, y) sitting at Vector3(x, 0, y) on the ground. Sizes are world
+# units, kept 1:1 with the sim so the mouse-ray aim needs no rescaling.
+
 const HERO_COLOR := Color(0.36, 0.66, 1.0)
 const BOT_COLOR := Color(1.0, 0.42, 0.38)
+
+## Hero body: a standing capsule of this radius and height. CREEP_* is the smaller
+## body a wave member gets so the wave reads as a cluster apart from the heroes.
 const ENTITY_RADIUS := 44.0
+const HERO_BODY_HEIGHT := 150.0
+const CREEP_RADIUS := 22.0
+const CREEP_BODY_HEIGHT := 80.0
+const CREEP_DARKEN := 0.3
 
 ## Per-hero tint: a team's heroes share its base colour but each is shaded by its roster
 ## seat (0..2), so three squadmates read apart while the team hue stays obvious. Indexed
@@ -52,31 +71,38 @@ const ENTITY_RADIUS := 44.0
 ## with no roster seat (an unknown kit) falls back to the flat team colour.
 const HERO_SHADES: Array[float] = [0.0, 0.28, -0.22]
 
-## Creeps render as small, darkened team-coloured circles so a wave reads as a
-## cluster distinct from the larger heroes.
-const CREEP_RADIUS := 22.0
-const CREEP_DARKEN := 0.3
+## Structures stand as boxes on the ground: a square footprint (tower/nexus) extruded
+## up by STRUCTURE_HEIGHT.
+const TOWER_SIZE := 110.0
+const NEXUS_SIZE := 200.0
+const STRUCTURE_HEIGHT := 220.0
 
-## Map debug-draw styling. World-unit sizes, tuned to read at the camera's
-## zoomed-out framing of the whole arena.
-const FIELD_COLOR := Color(0.114, 0.125, 0.145)
-const BOUNDS_COLOR := Color(0.3, 0.32, 0.36)
-const BOUNDS_WIDTH := 8.0
-const LANE_COLOR := Color(0.5, 0.5, 0.55, 0.7)
-const LANE_WIDTH := 28.0
-const CAMP_COLOR := Color(0.45, 0.7, 0.45)
-const CAMP_RADIUS := 60.0
-const TOWER_SIZE := Vector2(110.0, 110.0)
-const NEXUS_SIZE := Vector2(200.0, 200.0)
+## Ground plane + lighting, so the primitives read with depth instead of as flat dots.
+const GROUND_COLOR := Color(0.114, 0.125, 0.145)
+const AMBIENT_COLOR := Color(0.52, 0.56, 0.64)
+const AMBIENT_ENERGY := 0.5
+const LIGHT_ENERGY := 1.1
 
-## HP bar, drawn above any entity that carries health. Creeps get a compact bar
-## scaled to their smaller footprint.
-const HP_BAR_SIZE := Vector2(160.0, 26.0)
-const HP_BAR_OFFSET := Vector2(-80.0, -150.0)
-const CREEP_HP_BAR_SIZE := Vector2(70.0, 12.0)
-const CREEP_HP_BAR_OFFSET := Vector2(-35.0, -55.0)
-const HP_BAR_BG := Color(0.0, 0.0, 0.0, 0.6)
+## Camera follow-rig: a close, LoL-style view trailing the player's hero. Height and
+## the backward offset set both the look angle (atan(height / back) ~= 67°) and the
+## zoom — the camera sits ~950 units off the hero, so it reads about a tenth of the
+## frame tall. A steep pitch keeps the field filling the frame above the hero; both
+## are eyeball tuning knobs to dial in the windowed playtest.
+const CAM_HEIGHT := 880.0
+const CAM_BACK := 370.0
+
+## Billboarded HP/resource bars + status label floating above a unit (world units).
+## The *_Y constants are the height each floats at; creeps carry only a lower HP bar.
+const BAR_WIDTH := 170.0
+const BAR_HEIGHT := 24.0
+const HP_BAR_Y := 250.0
+const RES_BAR_Y := 214.0
+const STATUS_LABEL_Y := 320.0
+const CREEP_BAR_Y := 130.0
+const HP_BAR_BG := Color(0.0, 0.0, 0.0, 0.55)
 const HP_BAR_FG := Color(0.4, 0.85, 0.4)
+const RES_BAR_FG := Color(0.35, 0.6, 0.95)
+const STATUS_FONT_SIZE := 120
 
 ## The tribe the player's team falls back to in a LOCAL practice match when `--hero`
 ## names no known hero. The rosters themselves live in `AbilityData.TRIBE` — the single
@@ -96,14 +122,10 @@ const DUEL_KIT := "lion"
 ## soon as its cooldown and resource allow (quick-cast).
 const ABILITY_KEYS: Array[Key] = [KEY_1, KEY_2, KEY_3, KEY_4]
 
-## Resource bar, drawn just under a hero's HP bar, and the form ring around a hero —
-## white while human, amber while shifted to the animal form.
-const RES_BAR_SIZE := Vector2(160.0, 14.0)
-const RES_BAR_OFFSET := Vector2(-80.0, -118.0)
-const RES_BAR_BG := Color(0.0, 0.0, 0.0, 0.6)
-const RES_BAR_FG := Color(0.35, 0.6, 0.95)
-const FORM_RING_WIDTH := 6.0
-const FORM_RING_GAP := 6.0
+## Form ring laid flat on the ground under a hero, reading its active shapeshifter
+## form — white while human, amber while shifted to the animal form.
+const FORM_RING_RADIUS := 70.0
+const FORM_RING_THICKNESS := 12.0
 const HUMAN_RING_COLOR := Color(0.95, 0.95, 0.95)
 const ANIMAL_RING_COLOR := Color(1.0, 0.62, 0.2)
 
@@ -166,14 +188,22 @@ var _input_seq: int = 0
 ## Replayed onto every snapshot to predict our hero; pruned as acks arrive.
 var _pending_inputs: Array[Dictionary] = []
 
+## Presentation: the follow-camera, the ground plane, and the per-entity view pool.
+## Each view holds the node refs `_update_view` mutates — `{root, body, ring?, hp_node,
+## hp_fg, res_node?, res_fg?, status?}` — so a unit's nodes are built once, never rebuilt
+## while it lives. Filled in `_build_world` / `_sync_world`; see the presentation region.
+var _camera: Camera3D = null
+var _ground: MeshInstance3D = null
+var _views: Dictionary = {}
+
 
 func _ready() -> void:
+	_build_world()
 	_configure_from_cmdline()
 	if _explicit_mode or _is_headless():
 		_enter_match()
 	else:
 		_open_connect_menu()
-	queue_redraw()
 
 
 func _physics_process(_delta: float) -> void:
@@ -186,7 +216,7 @@ func _physics_process(_delta: float) -> void:
 			_tick_client()
 		_:
 			_tick_local()
-	queue_redraw()
+	_sync_world()
 
 
 # --- Mode setup -------------------------------------------------------------
@@ -268,7 +298,6 @@ func _enter_match() -> void:
 		_:
 			_start_local()
 	_started = true
-	queue_redraw()
 
 
 ## A headless run cannot drive a menu (no display, no pointer), so it always takes a
@@ -568,73 +597,294 @@ func _active_state() -> SimState:
 	return _client_state if _mode == Mode.CLIENT else _sim.state
 
 
-func _draw() -> void:
-	_draw_map()
-	if _started:
-		_draw_entities()
+# --- Presentation: 3D world + view pool -------------------------------------
+# A sim point on the 2D field, Vector2(x, y), sits at Vector3(x, 0, y) on the ground.
+# Each entity owns a pooled view (`_views[id]`), reconciled against the live state.
 
 
-func _draw_map() -> void:
-	draw_rect(MapData.BOUNDS, FIELD_COLOR, true)
-	draw_rect(MapData.BOUNDS, BOUNDS_COLOR, false, BOUNDS_WIDTH)
-	for lane in MapData.lane_count():
-		draw_polyline(MapData.lane_path(lane, HERO_TEAM), LANE_COLOR, LANE_WIDTH)
-	for camp in MapData.JUNGLE_CAMPS:
-		draw_circle(camp, CAMP_RADIUS, CAMP_COLOR)
+## A sim point on the 2D field, placed on the 3D ground: Vector2(x, y) -> (x, 0, y).
+func _world(p: Vector2) -> Vector3:
+	return Vector3(p.x, 0.0, p.y)
 
 
-## Draws the live world: towers and nexuses as squares, mobile units as circles,
-## each with an HP bar. Structures and units share one entity list, so they all come
-## from one state — the authoritative simulation in LOCAL/HOST, the predicted +
-## interpolated render state on a CLIENT.
-func _draw_entities() -> void:
+## Builds the static 3D scene once: a ground plane spanning the arena, a key light and
+## an ambient fill so the primitives read with depth, and the follow-camera framing the
+## arena centre to start. Authored in code (not the .tscn) so the scene file stays a
+## bare root and the Godot editor — which rewrites project.godot — is never needed.
+func _build_world() -> void:
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = GROUND_COLOR.darkened(0.4)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = AMBIENT_COLOR
+	env.ambient_light_energy = AMBIENT_ENERGY
+	var world_env := WorldEnvironment.new()
+	world_env.environment = env
+	add_child(world_env)
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-60.0, -45.0, 0.0)
+	light.light_energy = LIGHT_ENERGY
+	add_child(light)
+	_ground = MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = MapData.BOUNDS.size
+	_ground.mesh = plane
+	_ground.position = _world(MapData.BOUNDS.get_center())
+	_ground.material_override = _flat_material(GROUND_COLOR)
+	add_child(_ground)
+	_camera = Camera3D.new()
+	_camera.far = 20000.0
+	_camera.current = true
+	add_child(_camera)
+	_point_camera(MapData.BOUNDS.get_center())
+
+
+## Reconciles the view pool against the live state, then trails the camera. Called each
+## tick after the mode's step: a view is spawned the first time its entity is seen,
+## updated while it persists, and freed once its id leaves the state (a dead unit).
+func _sync_world() -> void:
 	var state := _active_state()
 	if state == null:
 		return
 	for id in state.entities:
 		var entity: SimEntity = state.entities[id]
-		if entity.is_structure:
-			var size := NEXUS_SIZE if entity.is_nexus else TOWER_SIZE
-			draw_rect(Rect2(entity.position - size * 0.5, size), _team_color(entity.team), true)
-			_draw_hp_bar(entity, HP_BAR_SIZE, HP_BAR_OFFSET)
-		elif entity.is_creep:
-			draw_circle(entity.position, CREEP_RADIUS, _team_color(entity.team).darkened(CREEP_DARKEN))
-			_draw_hp_bar(entity, CREEP_HP_BAR_SIZE, CREEP_HP_BAR_OFFSET)
-		else:
-			draw_circle(entity.position, ENTITY_RADIUS, _hero_color(entity))
-			_draw_hp_bar(entity, HP_BAR_SIZE, HP_BAR_OFFSET)
-			if entity.is_hero:
-				_draw_form_ring(entity)
-				_draw_resource_bar(entity)
+		if not _views.has(id):
+			_views[id] = _make_view(entity)
+		_update_view(_views[id], entity)
+	for id in _views.keys():
+		if not state.entities.has(id):
+			(_views[id]["root"] as Node3D).queue_free()
+			_views.erase(id)
+	_follow_camera(state)
 
 
-func _draw_hp_bar(entity: SimEntity, size: Vector2, offset: Vector2) -> void:
-	if entity.max_hp <= 0:
+## Trails the camera on the player's hero — a fixed height and pitch following it around
+## the field. With no hero yet (none spawned, or absent from a snapshot) it holds the
+## arena centre, so the menu backdrop and a spectating client still frame sensibly.
+func _follow_camera(state: SimState) -> void:
+	var hero := _camera_focus(state)
+	_point_camera(hero.position if hero != null else MapData.BOUNDS.get_center())
+
+
+## Places the camera above and behind a field point, looking down at it.
+func _point_camera(focus: Vector2) -> void:
+	var ground := _world(focus)
+	_camera.position = ground + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
+	_camera.look_at(ground)
+
+
+## The unit the camera trails: the player's own hero. LOCAL drives `_hero_id`; a CLIENT
+## reads its team's hero out of the render state; either way null before one exists.
+func _camera_focus(state: SimState) -> SimEntity:
+	if _mode == Mode.CLIENT:
+		return _local_hero(state)
+	if state.entities.has(_hero_id):
+		return state.entities[_hero_id]
+	return null
+
+
+## Builds an entity's pooled view: a primitive body (capsule unit, box structure), a
+## flat ground ring for heroes, and a billboarded overlay carrying the HP bar, the
+## resource bar (heroes), and the status label (heroes). Returns the node refs the
+## per-tick update mutates, so nothing is rebuilt while the entity lives.
+func _make_view(entity: SimEntity) -> Dictionary:
+	var root := Node3D.new()
+	add_child(root)
+	var view := {"root": root}
+	var body := MeshInstance3D.new()
+	body.mesh = _body_mesh(entity)
+	body.position = Vector3(0.0, _body_half_height(entity), 0.0)
+	body.material_override = _flat_material(_body_color(entity))
+	root.add_child(body)
+	view["body"] = body
+	if entity.is_hero:
+		var ring := MeshInstance3D.new()
+		ring.mesh = _ring_mesh()
+		ring.position = Vector3(0.0, 2.0, 0.0)
+		ring.material_override = _flat_material(HUMAN_RING_COLOR)
+		root.add_child(ring)
+		view["ring"] = ring
+	_attach_overlay(view, entity)
+	return view
+
+
+## Hangs the floating UI above an entity: an HP bar for anything with health, plus a
+## resource bar and a status label for a hero. Creeps get only a lower HP bar.
+func _attach_overlay(view: Dictionary, entity: SimEntity) -> void:
+	var root: Node3D = view["root"]
+	var hp := _make_bar(HP_BAR_FG, _hp_bar_y(entity))
+	root.add_child(hp["node"])
+	view["hp_node"] = hp["node"]
+	view["hp_fg"] = hp["fg"]
+	if not entity.is_hero:
 		return
-	var frac := clampf(float(entity.hp) / float(entity.max_hp), 0.0, 1.0)
-	var top_left := entity.position + offset
-	draw_rect(Rect2(top_left, size), HP_BAR_BG, true)
-	draw_rect(Rect2(top_left, Vector2(size.x * frac, size.y)), HP_BAR_FG, true)
+	var res := _make_bar(RES_BAR_FG, RES_BAR_Y)
+	root.add_child(res["node"])
+	view["res_node"] = res["node"]
+	view["res_fg"] = res["fg"]
+	var label := Label3D.new()
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.font_size = STATUS_FONT_SIZE
+	label.outline_size = STATUS_FONT_SIZE / 6
+	label.position = Vector3(0.0, STATUS_LABEL_Y, 0.0)
+	root.add_child(label)
+	view["status"] = label
 
 
-## A ring around a hero whose colour reads its active shapeshifter form — white
-## while human, amber once shifted to the animal form. Drawn just outside the hero
-## circle so it never hides the team colour.
-func _draw_form_ring(entity: SimEntity) -> void:
-	var color := ANIMAL_RING_COLOR if entity.form == AbilitySpec.FORM_ANIMAL else HUMAN_RING_COLOR
-	draw_arc(entity.position, ENTITY_RADIUS + FORM_RING_GAP, 0.0, TAU, 48, color, FORM_RING_WIDTH)
+## Reconciles one view with its entity: position, the form-ring colour, the bar fills,
+## and the status label. Cheap per-tick mutation only — no node is created here.
+func _update_view(view: Dictionary, entity: SimEntity) -> void:
+	(view["root"] as Node3D).position = _world(entity.position)
+	if view.has("ring"):
+		var mat := (view["ring"] as MeshInstance3D).material_override as StandardMaterial3D
+		var animal := entity.form == AbilitySpec.FORM_ANIMAL
+		mat.albedo_color = ANIMAL_RING_COLOR if animal else HUMAN_RING_COLOR
+	_set_bar(view["hp_fg"], _fraction(entity.hp, entity.max_hp))
+	if view.has("res_node"):
+		(view["res_node"] as Node3D).visible = entity.resource_max > 0
+		_set_bar(view["res_fg"], _fraction(entity.resource, entity.resource_max))
+	if view.has("status"):
+		_update_status(view["status"], entity)
 
 
-## A hero's resource pool as a bar under its HP bar. Nothing is drawn for an entity
-## with no pool (an unequipped hero, or a snapshot-decoded one — the resource is not
-## carried over the wire).
-func _draw_resource_bar(entity: SimEntity) -> void:
-	if entity.resource_max <= 0:
+## Left-anchors a bar's fill to `frac` of its full width by scaling the foreground quad
+## and sliding it so its left edge stays put. The follow-camera holds a fixed yaw, so a
+## billboarded quad's local x maps to screen x and the fill always reads horizontally.
+func _set_bar(fg: MeshInstance3D, frac: float) -> void:
+	fg.scale.x = maxf(frac, 0.0001)
+	fg.position.x = -BAR_WIDTH * 0.5 * (1.0 - frac)
+
+
+## Writes the active statuses onto a hero's floating label — `STUNNED` / `POISONED` /
+## `SLOWED`, coloured by the highest-priority one — and hides it when there are none.
+## Statuses live only in the authoritative sim (LOCAL/HOST), so a pure CLIENT shows
+## none until they are carried over the wire; the label simply stays hidden there.
+func _update_status(label: Label3D, entity: SimEntity) -> void:
+	if entity.statuses.is_empty():
+		label.visible = false
 		return
-	var frac := clampf(float(entity.resource) / float(entity.resource_max), 0.0, 1.0)
-	var top_left := entity.position + RES_BAR_OFFSET
-	draw_rect(Rect2(top_left, RES_BAR_SIZE), RES_BAR_BG, true)
-	draw_rect(Rect2(top_left, Vector2(RES_BAR_SIZE.x * frac, RES_BAR_SIZE.y)), RES_BAR_FG, true)
+	var names: Array[String] = []
+	for kind in [AbilitySpec.STATUS_STUN, AbilitySpec.STATUS_DOT, AbilitySpec.STATUS_SLOW]:
+		if entity.statuses.has(kind):
+			names.append(_status_name(kind))
+			if names.size() == 1:
+				label.modulate = _status_color(kind)
+	label.visible = true
+	label.text = "\n".join(names)
+
+
+func _status_name(kind: int) -> String:
+	match kind:
+		AbilitySpec.STATUS_STUN:
+			return "STUNNED"
+		AbilitySpec.STATUS_DOT:
+			return "POISONED"
+		AbilitySpec.STATUS_SLOW:
+			return "SLOWED"
+	return ""
+
+
+func _status_color(kind: int) -> Color:
+	match kind:
+		AbilitySpec.STATUS_STUN:
+			return Color(1.0, 0.9, 0.3)
+		AbilitySpec.STATUS_DOT:
+			return Color(0.6, 1.0, 0.4)
+		AbilitySpec.STATUS_SLOW:
+			return Color(0.55, 0.8, 1.0)
+	return Color.WHITE
+
+
+## A billboarded HP/resource bar: a dark background quad with a coloured foreground quad
+## over it, both returned with the foreground so `_set_bar` can scale the fill.
+func _make_bar(fg_color: Color, y: float) -> Dictionary:
+	var node := Node3D.new()
+	node.position = Vector3(0.0, y, 0.0)
+	var bg := MeshInstance3D.new()
+	bg.mesh = _bar_quad()
+	bg.material_override = _bar_material(HP_BAR_BG)
+	node.add_child(bg)
+	var fg := MeshInstance3D.new()
+	fg.mesh = _bar_quad()
+	fg.material_override = _bar_material(fg_color)
+	node.add_child(fg)
+	return {"node": node, "fg": fg}
+
+
+func _bar_quad() -> QuadMesh:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(BAR_WIDTH, BAR_HEIGHT)
+	return quad
+
+
+func _body_mesh(entity: SimEntity) -> Mesh:
+	if entity.is_structure:
+		var box := BoxMesh.new()
+		var w := NEXUS_SIZE if entity.is_nexus else TOWER_SIZE
+		box.size = Vector3(w, STRUCTURE_HEIGHT, w)
+		return box
+	var capsule := CapsuleMesh.new()
+	capsule.radius = CREEP_RADIUS if entity.is_creep else ENTITY_RADIUS
+	capsule.height = CREEP_BODY_HEIGHT if entity.is_creep else HERO_BODY_HEIGHT
+	return capsule
+
+
+func _ring_mesh() -> TorusMesh:
+	var torus := TorusMesh.new()
+	torus.inner_radius = FORM_RING_RADIUS - FORM_RING_THICKNESS
+	torus.outer_radius = FORM_RING_RADIUS
+	return torus
+
+
+## Half the body's height, the lift that stands it on the ground (its origin-centred
+## mesh otherwise sinks halfway under y = 0).
+func _body_half_height(entity: SimEntity) -> float:
+	if entity.is_structure:
+		return STRUCTURE_HEIGHT * 0.5
+	return (CREEP_BODY_HEIGHT if entity.is_creep else HERO_BODY_HEIGHT) * 0.5
+
+
+## The height a unit's HP bar floats at — clear above its body for each footprint.
+func _hp_bar_y(entity: SimEntity) -> float:
+	if entity.is_structure:
+		return STRUCTURE_HEIGHT + 70.0
+	if entity.is_creep:
+		return CREEP_BAR_Y
+	return HP_BAR_Y
+
+
+func _body_color(entity: SimEntity) -> Color:
+	if entity.is_creep:
+		return _team_color(entity.team).darkened(CREEP_DARKEN)
+	if entity.is_hero:
+		return _hero_color(entity)
+	return _team_color(entity.team)
+
+
+func _fraction(current: int, max_value: int) -> float:
+	if max_value <= 0:
+		return 0.0
+	return clampf(float(current) / float(max_value), 0.0, 1.0)
+
+
+func _flat_material(color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	return mat
+
+
+## An unshaded, always-camera-facing material with depth-test off, so a floating bar or
+## label reads at full colour over the lit world and the foreground quad layers cleanly
+## over its background by draw order rather than fighting it on depth.
+func _bar_material(color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.no_depth_test = true
+	return mat
 
 
 func _team_color(team: int) -> Color:
@@ -682,10 +932,26 @@ func _sample_ability(command: InputCommand) -> void:
 	var slot := _pressed_ability_slot()
 	if slot < 0:
 		return
-	var aim := get_global_mouse_position()
+	var aim := _mouse_world_point()
 	command.ability_slot = slot
 	command.target_point = aim
 	command.target_id = AbilityExecutor.pick_unit_target(_sim.state, HERO_TEAM, aim)
+
+
+## The point on the 2D field under the mouse: a ray cast from the camera through the
+## cursor, intersected with the ground plane (y = 0), returned in sim space. The aim a
+## ground or skillshot cast lands on, and the cursor a unit-target cast locks nearest.
+## Replaces the old 2D `get_global_mouse_position`, the world cursor under a Camera2D.
+func _mouse_world_point() -> Vector2:
+	if _camera == null:
+		return Vector2.ZERO
+	var mouse := get_viewport().get_mouse_position()
+	var origin := _camera.project_ray_origin(mouse)
+	var dir := _camera.project_ray_normal(mouse)
+	if absf(dir.y) < 0.0001:
+		return Vector2(origin.x, origin.z)
+	var hit := origin + dir * (-origin.y / dir.y)
+	return Vector2(hit.x, hit.z)
 
 
 ## The bar slot of the first held ability key (0..3), or -1 if none is down.

@@ -26,6 +26,14 @@ protocol version.
 
 ### Changed
 
+- The match now renders in 2.5D: a pitched, close camera follows your hero across the
+  field — heroes and creeps stand as shaded capsules and structures as boxes on a lit
+  ground, replacing the flat top-down dots. HP and resource bars and the human/animal
+  form ring float above each unit, and a unit's active statuses now show as a floating
+  label over it (`STUNNED` / `POISONED` / `SLOWED`) so crowd control is legible at a
+  glance. Casting aims by ray-casting the mouse onto the ground. The simulation stays a
+  flat 2D world and the netcode is untouched — this is a presentation change only, so the
+  protocol version is unchanged. Placeholder primitives stand in until art lands.
 - Snapshots are now packed into a compact binary wire format — a short header plus one
   fixed byte record per entity, with floats narrowed to 32 bits — instead of a Variant
   container. A full opening creep wave drops from roughly 3 KB to under 1 KB, so the
