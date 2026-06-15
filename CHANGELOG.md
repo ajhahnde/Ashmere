@@ -69,8 +69,9 @@ protocol version.
   connect screen's new picker or with `--bot-difficulty`. Easy is the default, so a practice
   match is winnable out of the box, while Hard is the previous full-strength bot. A lower
   difficulty slows the bots' reaction — they open their pokes on a slower beat, so a player
-  can out-trade them — without dulling their judgement: a bot at any level still positions,
-  kites, shifts form, and heals exactly as sharply. Sim-side and menu only; the netcode
+  can out-trade them — and meters a kiter's retreat so it no longer backs away flawlessly
+  and can be run down; otherwise their judgement is undulled: a bot at any level still
+  positions, shifts form, and heals exactly as sharply. Sim-side and menu only; the netcode
   protocol is unchanged.
 - A practice match can now be set up entirely from the connect screen: a hero picker lists
   every hero of both tribes, and the choice drives the same tribe-versus-tribe seating as the

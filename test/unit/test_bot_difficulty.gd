@@ -2,9 +2,12 @@ extends GutTest
 ## The bot's difficulty handicap — a cast-cadence reaction delay that softens a bot
 ## without dulling it. A higher level opens a damaging cast on more ticks: HARD every
 ## tick (full strength), the softer levels only on a slower beat, so the bot's poke
-## uptime drops and a human can out-trade it. These pin that the handicap throttles only
-## the damaging cast — never a heal (survival stays sharp) — and that the level-name
-## mapping the flag and the menu share resolves as expected. Headless and deterministic.
+## uptime drops and a human can out-trade it. A second handicap meters the kiter's
+## retreat footwork: HARD backs off every tick (uncatchable), the softer levels only on
+## a beat, so a chaser reels an eased kiter in. These pin that the cast handicap throttles
+## only the damaging cast — never a heal (survival stays sharp) — that the retreat is
+## metered while closing and holding stay crisp, and that the level-name mapping the flag
+## and the menu share resolves as expected. Headless and deterministic.
 
 const WILDKIN_SPIRIT_BOLT_SLOT := 0  # human SKILLSHOT, range 600 / radius 60
 const WILDKIN_MEND_SLOT := 1  # human HEAL
@@ -67,6 +70,44 @@ func test_difficulty_handicap_never_throttles_a_heal() -> void:
 		bot.decide(sim.state, id).ability_slot,
 		WILDKIN_MEND_SLOT,
 		"survival is never throttled: a hurt eased bot still heals off-beat"
+	)
+
+
+func test_easy_difficulty_throttles_the_kite_retreat() -> void:
+	var sim := SimCore.new()
+	sim.spawn_creeps = false
+	var id := _hero(sim, "cheetah", Vector2.ZERO)  # a kiter, id 1
+	sim.add_entity(1, Vector2(150.0, 0.0), 0.0, 600)  # point-blank, inside the Spear's band
+	var bot := _bot()
+	bot.difficulty = BotController.Difficulty.EASY
+	var period: int = BotController.KITE_RETREAT_PERIOD[BotController.Difficulty.EASY]
+	# Off its retreat beat the eased kiter holds its ground — the stutter that lets a chaser
+	# close — though the enemy sits point-blank inside its poke band.
+	sim.state.tick = 0  # (0 + 1) % period != 0
+	assert_eq(
+		bot.decide(sim.state, id).move_dir,
+		Vector2.ZERO,
+		"off its beat the eased kiter does not step back"
+	)
+	# On a beat it backs off, the very retreat a full-strength kiter makes.
+	sim.state.tick = period - 1  # (period - 1 + 1) % period == 0
+	assert_lt(
+		bot.decide(sim.state, id).move_dir.x, 0.0, "on its beat the eased kiter retreats from the enemy"
+	)
+
+
+func test_hard_difficulty_retreats_every_tick() -> void:
+	var sim := SimCore.new()
+	sim.spawn_creeps = false
+	var id := _hero(sim, "cheetah", Vector2.ZERO)
+	sim.add_entity(1, Vector2(150.0, 0.0), 0.0, 600)  # point-blank, inside the Spear's band
+	var bot := _bot()
+	bot.difficulty = BotController.Difficulty.HARD  # the default, asserted explicit here
+	sim.state.tick = 1  # an off-beat tick for any softer level
+	assert_lt(
+		bot.decide(sim.state, id).move_dir.x,
+		0.0,
+		"the full-strength kiter backs off every tick, no footwork handicap"
 	)
 
 

@@ -18,8 +18,11 @@ extends RefCounted
 ## Bot skill levels. A higher level reacts faster: HARD opens a damaging cast the
 ## instant one is ready (the full-strength bot the unit tests pin), while NORMAL and
 ## EASY only open one on a slower beat, so the bot's poke uptime drops and a human can
-## out-trade it. Survival and positioning (heal, transform, kite, advance) are never
-## throttled — the handicap slows the bot's hands, it does not dull its judgement.
+## out-trade it. Survival and most positioning (heal, transform, advance, the kiter's
+## poke and its closing) are never throttled — the handicap slows the bot's hands, not
+## its judgement. The one exception is the kiter's retreat: a kiter that backs off
+## perfectly every tick is uncatchable, so on the softer levels that one step is metered
+## on its own cadence (KITE_RETREAT_PERIOD), letting a chaser close the gap.
 enum Difficulty { EASY, NORMAL, HARD }
 
 ## Stop advancing once within this many world units of the target.
@@ -40,6 +43,18 @@ const HEAL_HP_FRACTION := 0.6
 const CAST_PERIOD := {
 	Difficulty.EASY: 45,
 	Difficulty.NORMAL: 18,
+	Difficulty.HARD: 1,
+}
+
+## Ticks between the beats on which a kiter of each difficulty takes a step back (at 60
+## ticks/s). A kiter's retreat is the one bit of footwork the handicap dulls: HARD steps
+## back every tick and is genuinely uncatchable (the test-pinned behaviour), while the
+## softer levels step back only once per this many ticks, so the kiter's effective retreat
+## speed drops to a fraction of its move speed and a chaser at full speed reels it in.
+## Closing and holding the band are never metered — only the escape. Eyeball-tunable.
+const KITE_RETREAT_PERIOD := {
+	Difficulty.EASY: 3,
+	Difficulty.NORMAL: 2,
 	Difficulty.HARD: 1,
 }
 
@@ -66,7 +81,7 @@ func decide(state: SimState, bot_id: int) -> InputCommand:
 	if target == null:
 		return command
 	if bot.is_hero and bot.stance == AbilityData.STANCE_KITE:
-		_kite_move(command, bot, target)
+		_kite_move(command, bot, target, state.tick)
 	else:
 		var offset := target.position - bot.position
 		if offset.length() > STOP_RANGE:
@@ -237,7 +252,9 @@ func _reaches(spec: AbilitySpec, dist: float) -> bool:
 ## within it so the poke lands. A kiter whose current form has no skillshot poke (it is
 ## briefly in the wrong form, about to shift back) just closes like a brawler until the
 ## stance step returns it to its ranged form. Movement only — the cast step still fires.
-func _kite_move(command: InputCommand, bot: SimEntity, target: SimEntity) -> void:
+## Closing and holding are crisp at every level; the back-off step is metered by
+## `_may_step_back`, so an eased kiter cannot retreat perfectly tick after tick.
+func _kite_move(command: InputCommand, bot: SimEntity, target: SimEntity, tick: int) -> void:
 	var to_enemy := target.position - bot.position
 	var dist := to_enemy.length()
 	if dist <= 0.0:
@@ -248,9 +265,21 @@ func _kite_move(command: InputCommand, bot: SimEntity, target: SimEntity) -> voi
 			command.move_dir = to_enemy / dist
 		return
 	if dist < band.x:
-		command.move_dir = -to_enemy / dist
+		if _may_step_back(bot, tick):
+			command.move_dir = -to_enemy / dist
 	elif dist > band.y:
 		command.move_dir = to_enemy / dist
+
+
+## Whether `tick` is one of this kiter's retreat beats — the footwork handicap that lets a
+## chaser catch an eased kiter. HARD's period of 1 makes every tick a beat, so it backs off
+## without pause (the uncatchable, test-pinned retreat); the softer levels step back only
+## once per `KITE_RETREAT_PERIOD[difficulty]` ticks, dropping the kiter's escape speed while
+## its poke and its closing stay sharp. Phase-shifted by the bot's id so a squad's kiters do
+## not all step on the same tick. A pure function of (tick, id), so a bot match still
+## replays identically.
+func _may_step_back(bot: SimEntity, tick: int) -> bool:
+	return (tick + bot.id) % KITE_RETREAT_PERIOD[difficulty] == 0
 
 
 ## The distance band a kiter holds — [range - radius, range + radius] of its current
