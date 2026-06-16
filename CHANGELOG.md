@@ -25,6 +25,8 @@ protocol version.
 
 ## [Unreleased]
 
+## [v0.3.4] — 2026-06-16
+
 ### Added
 
 - An **in-match HUD** for the player's hero: a bottom cluster with the hero's name

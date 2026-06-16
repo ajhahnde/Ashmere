@@ -1,16 +1,17 @@
 ; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
 ;
-; This file is the engine pin and the version mirror: `config/version` tracks
-; the canonical VERSION file, and the "4.6" feature string pins the Godot major
-; line the project is built against. Physics is pinned to the simulation's
-; 60 Hz tick so one physics frame equals one authoritative tick.
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
 [application]
 
 config/name="Theria"
-config/version="0.3.3"
+config/version="0.3.4"
 run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
@@ -21,12 +22,6 @@ window/size/viewport_width=1600
 window/size/viewport_height=900
 window/size/mode=3
 
-[physics]
-
-common/physics_ticks_per_second=60
-
 [rendering]
 
-; Required to export the macOS launcher for Apple Silicon (universal/arm64): the
-; exporter refuses an arm64 build unless ETC2 ASTC VRAM compression is importable.
 textures/vram_compression/import_etc2_astc=true
