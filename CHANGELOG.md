@@ -55,6 +55,18 @@ protocol version.
   the field reads as clumped grass under the models rather than a dead slab. The lane dirt paths,
   the river, and the camp markers still lay over it. Presentation only — the simulation and the
   netcode protocol are unchanged.
+- Field units now read cleanly against the ground with a rim light and a drop shadow: a
+  hard-edged fresnel rim lights each model's silhouette so it pops off the grass, and a soft blob
+  shadow sized to the unit's own footprint sits under every hero, creep, and structure so it
+  stands on the ground rather than floating. Presentation only — the simulation and the netcode
+  protocol are unchanged.
+- The map decor is reworked into the jungle look: the lanes are trampled dirt paths (dappled
+  worn earth with edges frayed into the grass), and the river is a stylized toon water — a
+  smoothed, gently meandering watercourse with drifting current bands and shallow banks. Both are
+  now built as one continuous mitred ribbon mesh per shape rather than a row of separate boxes, so
+  a winding lane or river turns its bends without angular gaps. A flat wooden plank bridge is laid
+  wherever a lane crosses the river (the top lane crosses twice), found by intersecting the lane
+  and river geometry. Presentation only — the simulation and the netcode protocol are unchanged.
 - The follow-camera now eases to the hero instead of locking to it 1:1, so a sharp turn or a
   respawn glides the view rather than snapping it; and while the hero is gone (dead, or not yet
   spawned) the camera rests where the hero last stood instead of jumping to the arena centre.
