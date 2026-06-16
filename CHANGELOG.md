@@ -25,6 +25,8 @@ protocol version.
 
 ## [Unreleased]
 
+## [v0.3.0] — 2026-06-16
+
 ### Added
 
 - A **Stable / Beta update channel** toggle in Settings. Beta (the default) keeps every new
