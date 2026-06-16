@@ -1,11 +1,12 @@
 class_name HeroModelLibrary
 extends RefCounted
 ## The placeholder 3D models the heroes wear, and the logic that drops one onto the
-## field at a consistent size and team colour. Each hero kit maps to a low-poly animal
-## glTF standing in for the species the shapeshifter takes. The models come from mixed
-## sources at wildly different authored scales and facings, so this module normalises
-## every one to a single on-field size and washes it with its team colour — the asset
-## handling kept out of the match presenter, which only asks for a model by kit.
+## field at a consistent size, facing, and team colour under a stylised cel shader. Each
+## hero kit maps to a low-poly animal glTF standing in for the species the shapeshifter
+## takes. The models come from mixed sources at wildly different authored scales and
+## facings, so this module normalises every one to a single on-field size, re-skins each
+## surface with the shared toon shader (`cel.gdshader` — banded light, team colour mixed
+## in), and leaves the match presenter to only ask for a model by kit.
 
 ## A hero kit's placeholder model, keyed by `kit_id`. A kit with no entry (an unknown
 ## kit, or a hero whose `kit_id` did not survive the wire on a pure CLIENT) has no model
@@ -35,15 +36,21 @@ const PROP_MODELS := {
 ## capsule it replaces so the species is legible from the follow-camera.
 const HERO_MODEL_SIZE := 260.0
 
-## The opacity of the team-colour wash overlaid on a model, strong enough to read blue
-## or red at a glance while the species texture still shows through underneath. Kept light
-## so an already-dark mesh (the spider) is tinted, not drowned to near-black.
-const TEAM_TINT_ALPHA := 0.25
+## The shared cel shader every model is re-skinned with, so a stylised toon-banded look
+## replaces the raw PBR import. Driven per surface in `_stylize`, which copies the source
+## material's albedo into it and folds the team colour in.
+const CEL_SHADER: Shader = preload("res://src/client/cel.gdshader")
 
-## The heavier wash a structure or creep takes — a prop has no species identity of its own
+## How far a hero's albedo is mixed toward its team colour (0 keeps the species colour, 1
+## replaces it), strong enough to read blue or red at a glance while the species texture
+## still shows through. Kept light so an already-dark mesh (the spider) is tinted, not
+## drowned to near-black.
+const TEAM_TINT_STRENGTH := 0.25
+
+## The heavier mix a structure or creep takes — a prop has no species identity of its own
 ## to protect, so it leans harder into the team colour than a hero does, reading blue/red
 ## at a glance from across the lane.
-const PROP_TINT_ALPHA := 0.4
+const PROP_TINT_STRENGTH := 0.4
 
 ## The yaw, in radians, that turns a kit's model to face its movement direction once the
 ## presenter has aimed its length axis down the move vector. The land animals are all
@@ -135,30 +142,31 @@ static func has_model(kit_id: String) -> bool:
 	return HERO_MODELS.has(kit_id)
 
 
-## Instances `kit_id`'s model under `parent`, size-normalised and washed with
-## `team_tint`, and returns it. `parent` must already be in the tree so the model's mesh
-## transforms resolve for the bounds measurement. Call only when `has_model(kit_id)`.
+## Instances `kit_id`'s model under `parent`, size-normalised and re-skinned with the cel
+## shader mixed toward `team_tint`, and returns it. `parent` must already be in the tree so
+## the model's mesh transforms resolve for the bounds measurement. Call only when
+## `has_model(kit_id)`.
 static func add_to(parent: Node3D, kit_id: String, team_tint: Color) -> Node3D:
 	var packed := load(HERO_MODELS[kit_id]) as PackedScene
 	var model := packed.instantiate() as Node3D
 	parent.add_child(model)
 	_normalize(model, HERO_MODEL_SIZE)
-	_tint(model, team_tint, TEAM_TINT_ALPHA)
+	_stylize(model, team_tint, TEAM_TINT_STRENGTH)
 	return model
 
 
 ## Instances a field prop's model (`prop` is a `PROP_MODELS` key — `creep`/`tower`/`nexus`)
-## under `parent`, normalised to that prop's size and washed with the heavier prop tint, and
-## returns it. Mirrors `add_to` for the non-hero field: a creep or a structure stands on the
-## ground at a consistent size instead of a debug capsule or box. `parent` must be in the
-## tree for the bounds measurement.
+## under `parent`, normalised to that prop's size and re-skinned with the cel shader at the
+## heavier prop mix, and returns it. Mirrors `add_to` for the non-hero field: a creep or a
+## structure stands on the ground at a consistent size instead of a debug capsule or box.
+## `parent` must be in the tree for the bounds measurement.
 static func add_prop(parent: Node3D, prop: String, team_tint: Color) -> Node3D:
 	var def: Dictionary = PROP_MODELS[prop]
 	var packed := load(def["path"]) as PackedScene
 	var model := packed.instantiate() as Node3D
 	parent.add_child(model)
 	_normalize(model, def["size"])
-	_tint(model, team_tint, PROP_TINT_ALPHA)
+	_stylize(model, team_tint, PROP_TINT_STRENGTH)
 	return model
 
 
@@ -209,18 +217,25 @@ static func _model_aabb(model: Node3D) -> AABB:
 	return out
 
 
-## Lays a translucent `color` overlay (at opacity `alpha`) over every mesh in `model`,
-## tinting it toward its team without replacing the model's own material, so the underlying
-## texture stays visible. A hero takes a light wash to keep its species; a prop a heavier one.
-static func _tint(model: Node3D, color: Color, alpha: float) -> void:
-	var wash := color
-	wash.a = alpha
-	var overlay := StandardMaterial3D.new()
-	overlay.albedo_color = wash
-	overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+## Re-skins every surface of `model` with the shared cel shader, mixed `strength` toward
+## the team `color`. Each surface gets its own ShaderMaterial seeded from the source
+## material's albedo (texture, base colour, and vertex-colour flag) so the model still
+## reads as itself — only the lighting turns toon-banded and the team colour blends in. A
+## hero takes a light mix to keep its species; a prop a heavier one.
+static func _stylize(model: Node3D, color: Color, strength: float) -> void:
 	for mi in _meshes(model):
-		mi.material_overlay = overlay
+		for surface in mi.mesh.get_surface_count():
+			var src := mi.get_active_material(surface) as BaseMaterial3D
+			var mat := ShaderMaterial.new()
+			mat.shader = CEL_SHADER
+			mat.set_shader_parameter("team_tint", color)
+			mat.set_shader_parameter("tint_strength", strength)
+			if src != null:
+				mat.set_shader_parameter("albedo", src.albedo_color)
+				mat.set_shader_parameter("use_vertex", 1.0 if src.vertex_color_use_as_albedo else 0.0)
+				if src.albedo_texture != null:
+					mat.set_shader_parameter("albedo_tex", src.albedo_texture)
+			mi.set_surface_override_material(surface, mat)
 
 
 ## Every MeshInstance3D carrying a mesh in the subtree under `node`, gathered depth-first.

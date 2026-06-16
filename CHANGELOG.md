@@ -44,6 +44,12 @@ protocol version.
   own measured top. So the whole field reads as models rather than the heroes standing among
   debug primitives. Bundled asset licenses are credited in [`CREDITS.md`](CREDITS.md).
   Presentation only — the simulation and the netcode protocol are unchanged.
+- Every field unit — heroes, creeps, and structures — now renders under a stylized cel shader
+  in place of the raw imported lighting: the key light is banded into flat tones for a low-poly
+  toon look, the shadow side reads as a deliberate matte tone rather than going black, and the
+  team colour is blended into the model's own albedo so blue and red read at a glance while each
+  model keeps its texture and species detail. Presentation only — the simulation and the netcode
+  protocol are unchanged.
 - The follow-camera now eases to the hero instead of locking to it 1:1, so a sharp turn or a
   respawn glides the view rather than snapping it; and while the hero is gone (dead, or not yet
   spawned) the camera rests where the hero last stood instead of jumping to the arena centre.
