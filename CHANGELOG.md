@@ -25,6 +25,16 @@ protocol version.
 
 ## [Unreleased]
 
+## [v0.3.2] — 2026-06-16
+
+### Fixed
+
+- Packaged builds shipped without their 3D models, so the client crashed when a match
+  started (and the auto-updated build was missing all hero, creep, and structure art). The
+  release pipeline was not fetching the model and texture assets when building, so they were
+  silently left out; it now pulls them, and the launcher and the auto-update payload contain
+  the full art again.
+
 ## [v0.3.1] — 2026-06-16
 
 ### Fixed
