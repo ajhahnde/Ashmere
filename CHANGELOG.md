@@ -25,6 +25,10 @@ protocol version.
 
 ## [Unreleased]
 
+### Changed
+
+- The client now launches in **fullscreen** instead of a maximized window.
+
 ## [v0.3.2] — 2026-06-16
 
 ### Fixed
