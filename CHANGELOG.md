@@ -24,6 +24,8 @@ protocol version.
 
 ## [Unreleased]
 
+## [v0.1.0] — 2026-06-16
+
 ### Changed
 
 - The arena is now a hand-designed map laid out on a single diagonal axis of symmetry rather
