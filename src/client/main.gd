@@ -67,8 +67,12 @@ const TOWER_SIZE := 110.0
 const NEXUS_SIZE := 200.0
 const STRUCTURE_HEIGHT := 220.0
 
-## Ground plane + lighting, so the primitives read with depth instead of as flat dots.
-const GROUND_COLOR := Color(0.114, 0.125, 0.145)
+## Ground + lighting. The ground plane wears a jungle short-grass shader (GROUND_SHADER —
+## toon-banded patches of two greens); behind it the sky is a dark jungle backdrop. The key
+## light and ambient fill are tuned so the cel-banded units and ground read with depth
+## rather than as flat dots.
+const GROUND_SHADER: Shader = preload("res://src/client/ground.gdshader")
+const BACKDROP_COLOR := Color(0.06, 0.12, 0.09)
 const AMBIENT_COLOR := Color(0.52, 0.56, 0.64)
 const AMBIENT_ENERGY := 0.5
 const LIGHT_ENERGY := 1.1
@@ -609,7 +613,7 @@ func _world(p: Vector2) -> Vector3:
 func _build_world() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = GROUND_COLOR.darkened(0.4)
+	env.background_color = BACKDROP_COLOR
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = AMBIENT_COLOR
 	env.ambient_light_energy = AMBIENT_ENERGY
@@ -625,7 +629,7 @@ func _build_world() -> void:
 	plane.size = MapData.BOUNDS.size
 	_ground.mesh = plane
 	_ground.position = _world(MapData.BOUNDS.get_center())
-	_ground.material_override = _flat_material(GROUND_COLOR)
+	_ground.material_override = _ground_material()
 	add_child(_ground)
 	MapView.build(self)
 	_camera = Camera3D.new()
@@ -895,6 +899,15 @@ func _fraction(current: int, max_value: int) -> float:
 func _flat_material(color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
+	return mat
+
+
+## The jungle short-grass material the ground plane wears: the shared grass shader, which
+## breaks the plane into toon-quantised patches of two greens and cel-bands the light to
+## match the units. A fresh instance so the one ground plane owns its own material.
+func _ground_material() -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = GROUND_SHADER
 	return mat
 
 

@@ -50,6 +50,11 @@ protocol version.
   team colour is blended into the model's own albedo so blue and red read at a glance while each
   model keeps its texture and species detail. Presentation only — the simulation and the netcode
   protocol are unchanged.
+- The ground is now a jungle short-grass surface in place of the flat dark plane: a procedural
+  shader breaks it into toon-quantised patches of two greens, cel-banded to match the units, so
+  the field reads as clumped grass under the models rather than a dead slab. The lane dirt paths,
+  the river, and the camp markers still lay over it. Presentation only — the simulation and the
+  netcode protocol are unchanged.
 - The follow-camera now eases to the hero instead of locking to it 1:1, so a sharp turn or a
   respawn glides the view rather than snapping it; and while the hero is gone (dead, or not yet
   spawned) the camera rests where the hero last stood instead of jumping to the arena centre.
