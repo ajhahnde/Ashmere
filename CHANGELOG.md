@@ -25,6 +25,8 @@ protocol version.
 
 ## [Unreleased]
 
+## [v0.4.1] — 2026-06-17
+
 ### Added
 
 - Heroes and units now **walk over the hills** instead of clipping through them — a unit's view
