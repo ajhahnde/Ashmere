@@ -25,7 +25,7 @@ func test_from_equals_to_returns_the_point() -> void:
 
 func test_routes_around_a_blocking_obstacle_on_a_clear_path() -> void:
 	var nav := NavGrid.new()
-	var center := MapData.tower_positions(0)[0]  # a real obstacle, open ground around it
+	var center := MapData.nexus_for_team(0)  # a real obstacle, open ground around it
 	var from := center + Vector2(700.0, 0.0)
 	var to := center - Vector2(700.0, 0.0)
 	assert_false(nav.segment_clear(from, to), "the straight line must run through the obstacle")
@@ -45,7 +45,7 @@ func test_routes_around_a_blocking_obstacle_on_a_clear_path() -> void:
 
 func test_target_inside_an_obstacle_resolves_to_free_ground() -> void:
 	var nav := NavGrid.new()
-	var center := MapData.tower_positions(0)[0]
+	var center := MapData.nexus_for_team(0)
 	var from := center + Vector2(1000.0, 0.0)
 	var path := nav.find_path(from, center)  # aim straight at the obstacle's centre
 	assert_gt(path.size(), 0, "a blocked target still yields a path to its edge")
@@ -58,7 +58,7 @@ func test_target_inside_an_obstacle_resolves_to_free_ground() -> void:
 
 func test_same_query_yields_an_identical_path() -> void:
 	var nav := NavGrid.new()
-	var center := MapData.tower_positions(0)[0]
+	var center := MapData.nexus_for_team(0)
 	var from := center + Vector2(700.0, 0.0)
 	var to := center - Vector2(700.0, 0.0)
 	var a := nav.find_path(from, to)

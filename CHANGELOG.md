@@ -25,6 +25,16 @@ protocol version.
 
 ## [Unreleased]
 
+## [v0.4.2] — 2026-06-17
+
+### Changed
+
+- **Towers no longer block movement** — a hero walks (and dives) straight through a tower, as in
+  the genre, instead of being shoved around an invisible footprint. A forward tower sits right on
+  a lane waypoint, so this also clears the lane a wave and its escorting hero march down. Towers
+  still fight: their range and damage are unchanged. The nexuses and the jungle rock walls remain
+  solid; pathing and bot routing follow the same set, so they no longer detour around towers.
+
 ## [v0.4.1] — 2026-06-17
 
 ### Added

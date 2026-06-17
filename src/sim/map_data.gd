@@ -122,17 +122,18 @@ const TOWER_SLOTS: Array[Vector2] = [
 ]
 
 # === Collision obstacles ===================================================================
-## The solid bodies a moving unit cannot enter and a path routes around: the structures and the
+## The solid bodies a moving unit cannot enter and a path routes around: the nexuses and the
 ## jungle rock walls. Every obstacle is a circle ({center, radius}); a wall is a chain of
 ## overlapping circles. The river and the fine cosmetic scatter stay walkable. Derived purely
-## from the geometry above (lanes, river, camps, towers, nexuses) and closed under the y = x
+## from the geometry above (lanes, river, camps, nexuses) and closed under the y = x
 ## mirror, so collision is team-fair and shares one source of truth with the sim, the bots, the
 ## nav grid, the tests, and the decor that draws these same rocks. A unit's body radius is owned
 ## by the sim (SimCore.UNIT_RADIUS); the radii here are the bare obstacle footprints.
 
-## A tower's and the nexus's solid footprint. A forward tower sits on a lane waypoint, so heroes
-## route around it while lane creeps (which never collide) still file past — see `obstacles`.
-const TOWER_RADIUS := 200.0
+## The nexus's solid footprint. Towers do NOT block movement — a hero walks (and dives) straight
+## through a tower as in the genre, and a forward tower sits right on a lane waypoint a wave files
+## past — so only the nexuses and the jungle walls are obstacles; see `obstacles`. (A tower still
+## fights: its combat range lives in SimCore, independent of any collision body.)
 const NEXUS_RADIUS := 320.0
 
 ## Jungle rock walls: a wall of blocker rocks runs each side of every lane, set back
@@ -250,9 +251,10 @@ static func clamp_to_bounds(pos: Vector2) -> Vector2:
 	)
 
 
-## The solid obstacle circles (each `{center: Vector2, radius: float}`): every team's towers and
-## nexus, plus the jungle rock walls and camp pockets. Baked once and cached — the map is static.
-## Closed under the y = x mirror, so the set is team-fair. Callers must treat it as read-only.
+## The solid obstacle circles (each `{center: Vector2, radius: float}`): every team's nexus, plus
+## the jungle rock walls and camp pockets. Towers are deliberately absent — they never block a body
+## (genre dive-through). Baked once and cached — the map is static. Closed under the y = x mirror,
+## so the set is team-fair. Callers must treat it as read-only.
 static func obstacles() -> Array:
 	if _obstacles.is_empty():
 		_obstacles = _build_obstacles()
@@ -262,8 +264,6 @@ static func obstacles() -> Array:
 static func _build_obstacles() -> Array:
 	var out: Array = []
 	for team in NEXUS_POSITIONS.size():
-		for slot in tower_positions(team):
-			out.append({"center": slot, "radius": TOWER_RADIUS})
 		out.append({"center": nexus_for_team(team), "radius": NEXUS_RADIUS})
 	for p in jungle_wall_points():
 		out.append({"center": p, "radius": WALL_RADIUS})

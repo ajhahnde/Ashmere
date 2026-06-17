@@ -241,7 +241,7 @@ func test_a_brawler_closes_a_point_blank_enemy() -> void:
 func test_a_brawler_routes_around_a_blocking_obstacle() -> void:
 	var sim := SimCore.new()
 	sim.spawn_creeps = false
-	var center := MapData.tower_positions(0)[0]
+	var center := MapData.nexus_for_team(0)
 	var bot := _hero(sim, "snake", center + Vector2(700.0, 0.0))
 	var enemy_pos := center - Vector2(700.0, 0.0)
 	sim.add_entity(1, enemy_pos, 0.0, 600)  # an enemy on the far side of the obstacle

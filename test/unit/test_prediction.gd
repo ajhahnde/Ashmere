@@ -102,7 +102,7 @@ func test_apply_movement_holds_still_on_null_command() -> void:
 
 
 func test_a_moving_hero_stops_at_an_obstacle_edge() -> void:
-	var center := MapData.tower_positions(0)[0]
+	var center := MapData.nexus_for_team(0)
 	var sim := SimCore.new()
 	sim.spawn_creeps = false
 	var hero := sim.add_hero(0, center + Vector2(600.0, 0.0), 320.0)
@@ -119,7 +119,7 @@ func test_a_moving_hero_stops_at_an_obstacle_edge() -> void:
 func test_prediction_matches_the_server_through_an_obstacle() -> void:
 	# The decoded snapshot the client predicts on carries no is_hero flag, but the collision gate is
 	# the same "mobile, non-creep" predicate, so the replay collides exactly as the server does.
-	var start := MapData.tower_positions(0)[0] + Vector2(600.0, 0.0)
+	var start := MapData.nexus_for_team(0) + Vector2(600.0, 0.0)
 	var inputs: Array = []
 	for _i in 30:
 		inputs.append(_command(Vector2.LEFT))
