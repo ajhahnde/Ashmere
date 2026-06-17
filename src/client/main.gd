@@ -77,18 +77,6 @@ const AMBIENT_COLOR := Color(0.52, 0.56, 0.64)
 const AMBIENT_ENERGY := 0.5
 const LIGHT_ENERGY := 1.1
 
-## Camera follow-rig: a close, LoL-style view trailing the hero. Height and the backward
-## offset set the look angle (atan(height / back) ~= 67°) and the zoom (~950 units off the
-## hero); eyeball tuning knobs for the windowed playtest.
-const CAM_HEIGHT := 880.0
-const CAM_BACK := 370.0
-
-## How far the camera closes the gap to its target each tick (0..1) — a smooth trail rather
-## than a hard 1:1 lock, so a direction change eases instead of snapping the whole view. At
-## 60 Hz, 0.2/tick settles in ~0.25 s: tight enough to stay on the hero, soft enough to take
-## the jerk out of a sharp turn or a respawn. Eyeball-tunable alongside the height/back above.
-const CAM_LERP := 0.2
-
 ## Billboarded HP/resource bars + status label floating above a unit (world units). Every
 ## body's HP bar floats HERO_BAR_GAP above its own model's measured top (animals, creeps, and
 ## structures all vary in height), the resource bar a step below and the status label above.
@@ -188,14 +176,9 @@ var _pending_inputs: Array[Dictionary] = []
 ## Each view holds the node refs `_update_view` mutates — `{root, body, ring?, hp_node,
 ## hp_fg, res_node?, res_fg?, status?}` — so a unit's nodes are built once, never rebuilt
 ## while it lives. Filled in `_build_world` / `_sync_world`; see the presentation region.
-var _camera: Camera3D = null
-## The field point the camera trails. Set to the hero each tick it exists and held at its
-## last value while the hero is gone (dead, pre-spawn), so the view eases to a rest on the
-## last sighting instead of snapping to the arena centre. Seeded at the arena centre.
-var _cam_target: Vector2 = Vector2.ZERO
-## False until the camera has been placed once: the first placement snaps (no glide-in from
-## the world origin), every one after eases toward the target by CAM_LERP.
-var _cam_ready: bool = false
+## The follow-rig — the Camera3D, its eased target, and the free-look state — lifted into its own
+## class to keep this file under the line cap. Built in `_build_world`, trailed each tick.
+var _cam: MatchCamera = null
 var _ground: MeshInstance3D = null
 ## The shared map-decor material (JungleDecor); fed the hero's world position each frame so the
 ## growth over the player's hero fades and the character stays visible.
@@ -642,13 +625,10 @@ func _build_world() -> void:
 	add_child(_ground)
 	MapView.build(self)
 	_foliage_mat = JungleDecor.build(self)
-	_camera = Camera3D.new()
-	_camera.far = 20000.0
-	_camera.current = true
-	add_child(_camera)
-	_cam_target = MapData.BOUNDS.get_center()
-	_point_camera(_cam_target)
-	_player_input = PlayerInput.new(_camera)
+	_cam = MatchCamera.new(Callable(self, "_world"))
+	add_child(_cam.node)
+	_cam.place(MapData.BOUNDS.get_center())
+	_player_input = PlayerInput.new(_cam.node)
 	_move_marker = MoveMarker.new()
 	add_child(_move_marker)
 	# The screen-space UI (HUD, kill feed, chat, death screen) draws over the zoomed game camera,
@@ -657,6 +637,10 @@ func _build_world() -> void:
 	if not _is_headless():
 		_overlays = MatchOverlays.new()
 		add_child(_overlays)
+		# The minimap projects a click back to a world point and emits it; wire one to the player's
+		# order pipeline and one to the camera pan, so the panel itself owns no game state.
+		_overlays.minimap.order_requested.connect(_on_minimap_order)
+		_overlays.minimap.look_requested.connect(_on_minimap_look)
 		_fog = FogOverlay.build(self)
 
 
@@ -694,29 +678,16 @@ func _sync_world() -> void:
 	_update_overlays(state)
 
 
-## Trails the camera on the player's hero — a fixed height and pitch, eased toward it each
-## tick (CAM_LERP) rather than locked, so the view glides. With no hero (none spawned yet,
-## or gone from a snapshot) the target holds its last value, so the camera rests where the
-## hero last stood instead of jumping to the arena centre; seeded there for the menu backdrop.
+## Trails the camera on the player's hero — re-pinned to it each tick it exists, held at its last
+## sighting while it is gone (dead, pre-spawn), unless free-look holds a minimap-panned point that
+## the re-centre key (SPACE, ignored while typing) drops. MatchCamera owns the easing; this hands it
+## the hero's point and feeds the map decor the framed spot so growth over it fades to its outline.
 func _follow_camera(state: SimState) -> void:
 	var hero := _camera_focus(state)
-	if hero != null:
-		_cam_target = hero.position
-	_point_camera(_cam_target)
-	# Tell the map decor where the hero is, so any growth standing over it fades to its outline.
+	var recenter := Input.is_physical_key_pressed(KEY_SPACE) and not _chat_typing()
+	_cam.follow(hero.position if hero != null else Vector2.ZERO, hero != null, recenter)
 	if _foliage_mat != null:
-		_foliage_mat.set_shader_parameter("hero_pos", _world(_cam_target))
-
-
-## Eases the camera toward a pose above and behind a field point, looking down at it. The
-## first placement snaps; each tick after closes CAM_LERP of the remaining gap, so the view
-## trails smoothly. look_at always aims at the live focus, so the hero stays framed mid-glide.
-func _point_camera(focus: Vector2) -> void:
-	var ground := _world(focus)
-	var goal := ground + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
-	_camera.position = goal if not _cam_ready else _camera.position.lerp(goal, CAM_LERP)
-	_cam_ready = true
-	_camera.look_at(ground)
+		_foliage_mat.set_shader_parameter("hero_pos", _world(_cam.target()))
 
 
 ## The unit the camera trails: the player's own hero. LOCAL drives `_hero_id`; a CLIENT
@@ -727,6 +698,18 @@ func _camera_focus(state: SimState) -> SimEntity:
 	if state.entities.has(_hero_id):
 		return state.entities[_hero_id]
 	return null
+
+
+## A right-click on the minimap: issue the player's move/attack order at that world point, through
+## the same pipeline a world right-click uses, so it auto-paths and reconciles over the wire.
+func _on_minimap_order(point: Vector2) -> void:
+	_player_input.order_at(_visible_state(), _player_hero_entity(), _player_team(), point)
+
+
+## A left-click (or left-drag) on the minimap: pan the camera there for a free look, holding it off
+## the hero until the player re-centres.
+func _on_minimap_look(point: Vector2) -> void:
+	_cam.look_at_point(point)
 
 
 ## Reconciles the whole screen-space UI each tick: the HUD, kill feed, and death screen all
@@ -972,8 +955,15 @@ func _hero_color(entity: SimEntity) -> Color:
 ## fires its QWER bind.
 func _sample_player_input() -> InputCommand:
 	return _player_input.sample(
-		_visible_state(), _player_hero_entity(), _player_team(), _sim != null and not _chat_typing()
+		_visible_state(), _player_hero_entity(), _player_team(),
+		_sim != null and not _chat_typing(), _pointer_over_minimap()
 	)
+
+
+## Whether the cursor sits over the minimap this tick — the world right-click order is skipped when
+## it does, so the panel's own order is the only one (no stray move under the card). False headless.
+func _pointer_over_minimap() -> bool:
+	return _overlays != null and _overlays.minimap.contains_pointer()
 
 
 ## The state the player acts on: the live sim where this client owns authority (LOCAL/HOST),

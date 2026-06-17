@@ -130,7 +130,9 @@ hurt and otherwise firing the reachable ability of their form. Cast its abilitie
 form (shown by the ring around it, white or amber), each form a different set of
 abilities drawing on its own resource (the bar under the health bar). Each hero appears as
 its own animal — a placeholder low-poly model washed in its team colour — so your three
-squadmates read apart by species at a glance. Abilities are
+squadmates read apart by species at a glance. The corner **minimap** is live: **right-click** it to
+send your hero across the map, **left-click** (or drag) to pan the camera for a free look, and press
+**Space** to snap back to your hero. Abilities are
 cast in a single-machine or hosted match; a joined client moves but does not yet
 cast.
 

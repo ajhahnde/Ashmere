@@ -26,3 +26,39 @@ func test_build_and_update_run_over_a_real_world() -> void:
 	# Before a hero spawns the driver passes a null focus — must not error.
 	minimap.update(sim.state, 0, null, [Color.RED, Color.BLUE], true)
 	assert_eq(minimap.custom_minimum_size, Vector2(Minimap.SIZE, Minimap.SIZE), "the panel is sized")
+
+
+func test_unmap_point_is_the_inverse_of_map_point() -> void:
+	var panel := Vector2(Minimap.SIZE, Minimap.SIZE)
+	var bounds := MapData.BOUNDS
+	assert_eq(Minimap.unmap_point(Vector2.ZERO, panel), bounds.position, "0 maps back to top-left")
+	assert_eq(Minimap.unmap_point(panel, panel), bounds.end, "size maps back to bottom-right")
+	assert_eq(Minimap.unmap_point(panel * 0.5, panel), bounds.get_center(), "centre back to centre")
+	# A non-trivial sim point survives map → unmap unchanged (the click projection is lossless).
+	var p := bounds.position + bounds.size * Vector2(0.3, 0.7)
+	var round_trip := Minimap.unmap_point(Minimap.map_point(p, panel), panel)
+	assert_almost_eq(round_trip, p, Vector2(0.01, 0.01), "map → unmap is the identity")
+
+
+func test_a_click_on_the_plan_emits_a_command_at_the_world_point_under_it() -> void:
+	var minimap := Minimap.new()
+	autofree(minimap)
+	var panel := Vector2(Minimap.SIZE, Minimap.SIZE)
+	minimap.size = panel  # pin a known size so the projection is independent of a layout pass
+	watch_signals(minimap)
+	var local := panel * Vector2(0.25, 0.6)
+	var world := Minimap.unmap_point(local, panel)
+
+	var right := InputEventMouseButton.new()
+	right.button_index = MOUSE_BUTTON_RIGHT
+	right.pressed = true
+	right.position = local
+	minimap._gui_input(right)
+	assert_signal_emitted_with_parameters(minimap, "order_requested", [world])
+
+	var left := InputEventMouseButton.new()
+	left.button_index = MOUSE_BUTTON_LEFT
+	left.pressed = true
+	left.position = local
+	minimap._gui_input(left)
+	assert_signal_emitted_with_parameters(minimap, "look_requested", [world])

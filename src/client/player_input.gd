@@ -54,14 +54,19 @@ func _init(camera: Camera3D) -> void:
 ## before one spawns); `team` is their team. `cast_abilities` is true only with a local
 ## authoritative sim (LOCAL/HOST) — a pure CLIENT casts nothing yet, as the wire carries
 ## movement alone.
-func sample(state: SimState, hero: SimEntity, team: int, cast_abilities: bool) -> InputCommand:
+func sample(
+	state: SimState, hero: SimEntity, team: int, cast_abilities: bool, pointer_over_ui := false
+) -> InputCommand:
 	var command := InputCommand.new()
 	if hero != null and hero.is_dead():
 		# Down and behind the death screen: ignore input and drop any standing order, so the
 		# hero respawns idle at base rather than marching off toward a pre-death click.
 		_halt()
 		return command
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+	# Skip the world right-click order while the cursor is over the minimap (or other UI): that
+	# panel issues its own order from the click, and the camera ray under the card would otherwise
+	# fire a second, garbage move to wherever it pierces the ground.
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and not pointer_over_ui:
 		_issue_order(state, hero, team, _mouse_world_point())
 	if Input.is_physical_key_pressed(STOP_KEY):
 		_halt()
@@ -69,6 +74,13 @@ func sample(state: SimState, hero: SimEntity, team: int, cast_abilities: bool) -
 	if cast_abilities:
 		_sample_ability(command, state, team)
 	return command
+
+
+## Issues a move/attack order at a world point chosen off the minimap rather than the cursor — the
+## same order a world right-click makes (auto-pathed, wire-reconciled), only the point comes from
+## the plan. The driver projects the minimap click and hands the sim point straight in.
+func order_at(state: SimState, hero: SimEntity, team: int, point: Vector2) -> void:
+	_issue_order(state, hero, team, point)
 
 
 ## Resolves a right-click into an order: clicking on an enemy attacks it (the hero closes to

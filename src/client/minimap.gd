@@ -1,5 +1,10 @@
 class_name Minimap
 extends Control
+
+## A right-click on the plan: issue the player's move/attack order at this world point.
+signal order_requested(world_point: Vector2)
+## A left-click or left-drag on the plan: pan the camera to this world point (free look).
+signal look_requested(world_point: Vector2)
 ## The corner minimap: a scaled top-down plan of the arena in the bottom-right, drawn over the
 ## game camera like the rest of the match UI. It shows the static terrain (lanes, river, the map
 ## frame) as a backdrop and the live units as dots — friendly always, enemies only where the
@@ -11,10 +16,17 @@ extends Control
 ## the plan cannot drift from the played map. Built in code on the UiTheme palette, like every
 ## other overlay; no `.tscn`, no editor pass.
 ##
-## v1 is display-only: clicking the minimap does nothing (movement is a right-click in the world,
-## and right-clicking over the minimap still issues a world move — the click-to-ping and
-## click-to-move-camera interactions are a later slice). It does not capture the mouse, so it never
-## steals a click from the HUD beside it.
+## Interactive: a click on the plan reads as a command at the world point under it (the inverse of
+## `map_point`). A **right-click** issues the player's move/attack order there — the same order a
+## world right-click makes, so it auto-paths and reconciles over the wire identically, only chosen
+## off the map so the hero can be sent clear across the arena. A **left-click** (or a left-drag,
+## scrubbing) pans the camera there for a free look, until the player re-centres on their hero. The
+## panel captures the pointer within its own square, so a click on the plan no longer leaks a stray
+## world order under the card; clicks elsewhere still fall through to the world untouched.
+##
+## It owns no movement or camera state itself — it only projects the click back to a world point and
+## emits it; the driver wires `order_requested`/`look_requested` to PlayerInput and the camera. Ping
+## markers are a later slice (they travel the wire, so they ride their own netcode pass).
 
 ## The square plan's side and its inset from the screen corner, in pixels.
 const SIZE := 280.0
@@ -63,8 +75,30 @@ func _ready() -> void:
 	offset_top = -(SIZE + MARGIN)
 	offset_right = -MARGIN
 	offset_bottom = -MARGIN
-	# Display-only: never capture the pointer, so a click falls through to the world/HUD as before.
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Capture the pointer over the plan so a click here is a map command, not a stray world order
+	# under the card. Only this square stops the pointer; clicks elsewhere fall through as before.
+	mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+## Routes a click on the plan to a world command. A right-click emits a move/attack order, a
+## left-click (or a left-drag, so the camera scrubs as the pointer moves) a camera look — both at
+## the world point under the cursor, projected back through `unmap_point`. The event position is
+## panel-local already, so it maps straight into the plan square.
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		var at := unmap_point(event.position, size)
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			order_requested.emit(at)
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			look_requested.emit(at)
+	elif event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		look_requested.emit(unmap_point(event.position, size))
+
+
+## Whether the pointer is over the plan right now — the driver reads this to suppress the world
+## right-click order while the cursor sits on the minimap, so the panel's own order is the only one.
+func contains_pointer() -> bool:
+	return get_global_rect().has_point(get_global_mouse_position())
 
 
 ## Reconciles the plan against this tick's world. `state` is the world to draw, `focus` the player's
@@ -90,6 +124,14 @@ static func map_point(p: Vector2, panel_size: Vector2) -> Vector2:
 	var bounds := MapData.BOUNDS
 	var n := (p - bounds.position) / bounds.size
 	return Vector2(n.x * panel_size.x, n.y * panel_size.y)
+
+
+## The inverse: a panel pixel back to the sim-field point under it, so a click on the plan becomes a
+## world command. Static and pure, the exact inverse of `map_point` — a round trip is the identity.
+static func unmap_point(panel_point: Vector2, panel_size: Vector2) -> Vector2:
+	var bounds := MapData.BOUNDS
+	var n := Vector2(panel_point.x / panel_size.x, panel_point.y / panel_size.y)
+	return bounds.position + n * bounds.size
 
 
 func _draw() -> void:

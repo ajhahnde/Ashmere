@@ -61,8 +61,12 @@ protocol version.
 - A **minimap** in the bottom-right corner: a scaled plan of the arena with the lanes and river as a
   backdrop and live dots for every unit — your team always, enemies only where your team has vision,
   so it respects the same fog of war as the main view. Your own hero is ringed so it is easy to find.
-  *(First pass: display-only — clicking it does nothing yet; pings and click-to-move-camera are a
-  later slice.)*
+- The minimap is **interactive**: **right-click** the plan to send your hero there — the same
+  auto-pathed, wire-reconciled move order a world right-click makes, only chosen off the map so you
+  can command clear across the arena — and **left-click** (or left-drag) to pan the camera there for
+  a free look, snapped back onto your hero with **Space**. Clicking the plan no longer leaks a stray
+  world order to the ground under the card. *(Pings travel the wire, so they ride a later netcode
+  pass.)*
 
 ## [v0.3.4] — 2026-06-16
 
